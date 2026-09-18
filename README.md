@@ -48,3 +48,9 @@ npm run build:win
 Hướng dẫn chi tiết nằm trong [HUONG_DAN_BUILD_WINDOWS.md](HUONG_DAN_BUILD_WINDOWS.md).
 
 Các file build trong `dist/` không được commit vào source repository. Bộ cài đặt có thể được phát hành riêng bằng GitHub Release.
+
+## License
+
+Copyright (c) 2026 Nguyễn Thành Kiên
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).
