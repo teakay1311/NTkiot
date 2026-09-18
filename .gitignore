@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.DS_Store
+.claude/settings.local.json
+
+# Local application data and backups
+data.json
+data.json.bak
+backups/
+logs/
+*.log
+*.tmp-*
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+
+# Workspace-only legacy/debug files
+*.txt
+debug_test.html
+fix.js
+icon_fix_task.txt
+Hư*
+/icon.ico

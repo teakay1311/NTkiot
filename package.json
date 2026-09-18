@@ -1,0 +1,39 @@
+{
+  "name": "ntkiot",
+  "version": "1.0.1",
+  "description": "Ứng dụng quản lý bán hàng offline trên máy tính",
+  "main": "main.js",
+  "scripts": {
+    "doctor": "node scripts/doctor.js",
+    "test": "node --test tests/regression-fixes.test.js",
+    "start": "electron .",
+    "prebuild": "node scripts/doctor.js",
+    "build": "electron-builder",
+    "prebuild:win": "node scripts/doctor.js",
+    "build:win": "electron-builder --win nsis --x64",
+    "prebuild:win:arm64": "node scripts/doctor.js",
+    "build:win:arm64": "electron-builder --win nsis --arm64"
+  },
+  "devDependencies": {
+    "electron": "^39.8.10",
+    "electron-builder": "^26.4.0"
+  },
+  "build": {
+    "appId": "com.ntkiot.pos",
+    "productName": "NTKIOT",
+    "win": {
+      "target": "nsis",
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
+  },
+  "dependencies": {
+    "jsbarcode": "^3.11.5",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  }
+}
