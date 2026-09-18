@@ -2,6 +2,10 @@
 
 NTKIOT là ứng dụng quản lý bán hàng offline trên máy tính, hỗ trợ sản phẩm, tồn kho, hóa đơn, khách hàng, nhà cung cấp, nhập hàng, đổi trả, in hóa đơn và sao lưu dữ liệu cục bộ.
 
+## Giao diện chính
+
+![Giao diện chính NTKIOT](assets/ntkiot-main-screen.png)
+
 ## Đặc điểm
 
 - Hoạt động offline, không yêu cầu backend hoặc kết nối mạng khi sử dụng.

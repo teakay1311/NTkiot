@@ -30,6 +30,18 @@ function createTestContext(context) {
     return context;
 }
 
+test('renderer bootstrap can reuse the SheetJS XLSX global', () => {
+    const bootstrapEnd = source.indexOf('function serializeError');
+    assert.notEqual(bootstrapEnd, -1);
+
+    const context = { window: { ntkiot: null, JsBarcode: () => {}, XLSX: { utils: {} } } };
+    vm.createContext(context);
+    vm.runInContext('var XLSX = window.XLSX;', context);
+
+    assert.doesNotThrow(() => vm.runInContext(source.slice(0, bootstrapEnd), context));
+    assert.equal(context.XLSX, context.window.XLSX);
+});
+
 test('stored ID matching uses the production helper and preserves identity boundaries', () => {
     const context = {};
     createTestContext(context);

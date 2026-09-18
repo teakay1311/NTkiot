@@ -2,7 +2,7 @@
 // Electron capabilities are intentionally exposed only through preload.js.
 const desktop = window.ntkiot || null;
 const JsBarcode = window.JsBarcode;
-const XLSX = window.XLSX;
+var XLSX = window.XLSX;
 const hasDesktopStorage = () => typeof desktop !== 'undefined' && !!desktop?.data?.load;
 
 function serializeError(error) {
