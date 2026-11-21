@@ -9,6 +9,10 @@
     <link rel="stylesheet" href="styles.css?v=cart-item-layout-fix">
     <script src="node_modules/xlsx/dist/xlsx.full.min.js"></script>
     <script src="node_modules/jsbarcode/dist/JsBarcode.all.min.js"></script>
+    <script src="data-model.js" defer></script>
+    <script src="notification-events.js" defer></script>
+    <script src="notifications.js" defer></script>
+    <script src="responsive-tables.js" defer></script>
     <script src="script.js" defer></script>
 </head>
 
@@ -18,7 +22,7 @@
         <!-- SIDEBAR -->
         <aside>
             <!-- Sidebar Toggle Button -->
-            <button class="sidebar-toggle" onclick="toggleSidebar()" title="Thu gọn/mở rộng thanh menu">◀</button>
+            <button class="sidebar-toggle" onclick="toggleSidebar()" data-icon-tooltip="Thu gọn menu" aria-label="Thu gọn menu">◀</button>
             <div class="brand"><span class="brand-icon">🛒</span><span class="brand-text"> NTKIOT</span></div>
             <nav id="nav-menu"></nav>
             <div class="user-panel">
@@ -30,17 +34,21 @@
 
         <!-- MAIN -->
         <main>
+            <button type="button" id="time-override-badge" class="time-override-badge" hidden
+                role="status" onclick="openDateTimeSettings()" title="Mở Cài đặt ngày giờ">
+                🕐 Đang dùng giờ tùy chỉnh
+            </button>
             <!-- 1. POS -->
             <div id="pos-view" class="view active">
                 <div class="pos-left">
                     <div class="search-area">
                         <input type="text" id="pos-search" placeholder="🔍 F1 - Tìm kiếm sản phẩm hoặc quét mã vạch..."
                             oninput="handleSearchInput()" onkeydown="handleSearchKey(event)" autocomplete="off">
-                        <select id="pos-cat" style="width:200px" onchange="handleCategoryChange()"></select>
+                        <select id="pos-cat" class="pos-category-select" onchange="handleCategoryChange()"></select>
                         <!-- View Mode Toggle -->
                         <div class="view-mode-toggle" id="view-mode-toggle">
                             <button class="view-btn active" data-view="grid" onclick="setViewMode('grid')"
-                                title="Dạng lưới (Icons)">
+                                data-icon-tooltip="Dạng lưới" aria-label="Dạng lưới">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                     <rect x="1" y="1" width="6" height="6" rx="1" />
                                     <rect x="9" y="1" width="6" height="6" rx="1" />
@@ -49,7 +57,7 @@
                                 </svg>
                             </button>
                             <button class="view-btn" data-view="list" onclick="setViewMode('list')"
-                                title="Dạng danh sách">
+                                data-icon-tooltip="Dạng danh sách" aria-label="Dạng danh sách">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                     <rect x="1" y="1" width="14" height="3" rx="1" />
                                     <rect x="1" y="6" width="14" height="3" rx="1" />
@@ -57,7 +65,7 @@
                                 </svg>
                             </button>
                             <button class="view-btn" data-view="details" onclick="setViewMode('details')"
-                                title="Dạng chi tiết">
+                                data-icon-tooltip="Dạng chi tiết" aria-label="Dạng chi tiết">
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                                     <rect x="1" y="1" width="3" height="3" rx="0.5" />
                                     <rect x="6" y="1.5" width="9" height="2" rx="0.5" />
@@ -124,7 +132,9 @@
                                 <span style="font-weight:700; font-size:16px; color:var(--text-primary)">🛒 Giỏ
                                     hàng</span>
                                 <button id="btn-return-toggle" class="btn-return-toggle"
-                                    onclick="toggleReturnExchangeMode()" title="Chế độ Đổi/Trả nhanh">🔄</button>
+                                    onclick="toggleReturnExchangeMode()" data-icon-tooltip="Đổi/trả" aria-label="Đổi/trả">🔄</button>
+                                <button type="button" id="hold-btn" class="btn-return-toggle btn-hold-order" onclick="holdOrder()"
+                                    data-icon-tooltip="Tạm giữ đơn" aria-label="Tạm giữ đơn">⏸️</button>
                             </div>
                             <span id="cart-badge"
                                 style="background:linear-gradient(135deg, var(--primary), var(--secondary)); color:white; font-size:12px; padding:4px 12px; border-radius:20px; font-weight:600;">0</span>
@@ -142,9 +152,9 @@
                     <div class="invoice-tabs-container" id="invoice-tabs-container">
                         <div class="invoice-tabs" id="invoice-tabs-list"></div>
                         <button class="btn-add-tab" onclick="openInvoiceDraftsModal()"
-                            title="Mở đơn lưu tạm" aria-label="Mở đơn lưu tạm">📋</button>
+                            data-icon-tooltip="Mở đơn tạm" aria-label="Mở đơn tạm">📋</button>
                         <button class="btn-add-tab" onclick="createNewInvoiceTab()"
-                            title="Thêm đơn mới (Ctrl+T)">+</button>
+                            data-icon-tooltip="Thêm đơn" aria-label="Thêm đơn">+</button>
                     </div>
                     <!-- Normal Cart View -->
                     <div class="cart-list" id="cart-list"></div>
@@ -168,6 +178,7 @@
                             <div class="cart-row-total">Tổng: <span id="exchange-total">0 ₫</span></div>
                         </div>
                     </div>
+                    <div id="pos-notifications" class="notification-region" hidden></div>
                     <div class="cart-footer checkout-fast">
                         <button type="button" id="payment-details-toggle" class="payment-details-toggle"
                             onclick="togglePaymentDetails()" aria-expanded="false" aria-controls="payment-details-panel">
@@ -237,10 +248,6 @@
                             <button id="btn-payment" class="btn btn-success w-50" onclick="directCheckout()"
                                 style="padding:8px 12px; font-size:13px;">✅ Thanh toán (F4)</button>
                         </div>
-                        <!-- Hold Order Button -->
-                        <button class="btn btn-warning w-100 mt-2" onclick="holdOrder()" style="display:none"
-                            id="hold-btn">⏸️ Tạm giữ đơn</button>
-
                     </div>
                 </div>
             </div>
@@ -248,12 +255,12 @@
             <!-- 2. HISTORY -->
             <div id="history-view" class="view">
                 <div class="page-padding">
-                    <div class="d-flex justify-between items-center mb-2">
+                    <div class="d-flex justify-between items-center mb-2 history-page-header">
                         <h2 class="section-title" style="margin-bottom:0">📜 Lịch sử</h2>
                         <div id="history-header-tools">
-                            <div class="d-flex items-center gap-1 header-actions" data-history-tools="sales">
-                                <input type="text" id="hist-staff-search" placeholder="🔍 Mã hoặc tên NV..."
-                                    style="width:180px" oninput="renderHist()">
+                            <div class="d-flex items-center gap-1 header-actions history-toolbar" data-history-tools="sales">
+                                <input type="text" id="hist-staff-search" placeholder="🔍 Mã HĐ, khách hàng, NV, sản phẩm..." aria-label="Tìm mã hóa đơn, khách hàng, nhân viên hoặc sản phẩm"
+                                    class="history-search" oninput="debouncedHistSearch()">
                                 <div class="date-filter-dropdown" id="hist-date-filter-dropdown">
                                     <button class="btn btn-secondary date-filter-btn" onclick="toggleDateFilter('hist')">
                                         <span id="hist-date-filter-label">📅 Hôm nay</span>
@@ -278,9 +285,9 @@
                                 <button class="btn btn-sm btn-secondary" onclick="exportHistoryPDF()">📄 PDF</button>
                                 <button id="bulk-delete-invoices-btn" class="btn btn-sm btn-danger" onclick="deleteSelectedInvoices()" style="display:none;">🗑️ Xóa (0)</button>
                             </div>
-                            <div class="d-flex items-center gap-1 header-actions" data-history-tools="returns" style="display:none">
-                                <input type="text" id="returns-staff-search" placeholder="🔍 Mã hoặc tên NV..."
-                                    style="width:180px" oninput="renderReturnsHistory()">
+                            <div class="d-flex items-center gap-1 header-actions history-toolbar" data-history-tools="returns" style="display:none">
+                                <input type="text" id="returns-staff-search" placeholder="🔍 Mã phiếu, HĐ gốc, khách, NV, sản phẩm..." aria-label="Tìm mã phiếu, hóa đơn gốc, khách hàng, nhân viên hoặc sản phẩm"
+                                    class="history-search" oninput="debouncedReturnsSearch()">
                                 <div class="date-filter-dropdown" id="returns-date-filter-dropdown">
                                     <button class="btn btn-secondary date-filter-btn" onclick="toggleDateFilter('returns')">
                                         <span id="returns-date-filter-label">📅 Hôm nay</span>
@@ -314,36 +321,36 @@
                     <div id="history-tab-sales" class="products-tab-content active">
 
                     <!-- Summary Cards -->
-                    <div class="d-flex gap-2 mb-2">
-                        <div class="box stat-card" style="flex:1">
+                    <div class="d-flex gap-2 mb-2 history-kpis">
+                        <div class="box stat-card history-stat-card" style="flex:1">
                             <div class="stat-label">Tổng doanh thu</div>
                             <div class="stat-val" id="hist-total-rev">0 ₫</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card history-stat-card" style="flex:1">
                             <div class="stat-label">Số đơn hàng</div>
                             <div class="stat-val" id="hist-total-orders">0</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card history-stat-card" style="flex:1">
                             <div class="stat-label">Giá trị TB/đơn</div>
                             <div class="stat-val" id="hist-avg-order">0 ₫</div>
                         </div>
                     </div>
 
                     <div class="table-wrap">
-                        <table>
+                        <table class="history-table history-sales-table">
                             <thead>
                                 <tr>
                                     <th style="width:40px;text-align:center;"><input type="checkbox"
                                             id="select-all-invoices" onchange="toggleAllInvoices(this)"
                                             style="width:18px;height:18px;cursor:pointer;" title="Chọn tất cả"></th>
-                                    <th>Mã HĐ</th>
-                                    <th>Thời gian</th>
-                                    <th>Khách hàng</th>
-                                    <th>Người bán</th>
-                                    <th>Sản phẩm</th>
-                                    <th>Tổng tiền</th>
-                                    <th>Giảm giá</th>
-                                    <th>Thanh toán</th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="id" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','id')" title="Sắp xếp mã hóa đơn A-Z/Z-A">Mã HĐ <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="date" aria-sort="descending"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','date')" title="Sắp xếp ngày mới/cũ">Ngày <span class="sort-indicator" aria-hidden="true">▼</span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="customer" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','customer')" title="Sắp xếp khách hàng A-Z/Z-A">Khách hàng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="staff" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','staff')" title="Sắp xếp người bán A-Z/Z-A">Người bán <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="items" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','items')" title="Sắp xếp số mặt hàng cao-thấp/thấp-cao">Mặt hàng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="total" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','total')" title="Sắp xếp tổng tiền cao-thấp/thấp-cao">Tổng tiền <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="discount" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','discount')" title="Sắp xếp giảm giá cao-thấp/thấp-cao">Giảm giá <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-history-sort-view="sales" data-history-sort-key="method" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('sales','method')" title="Sắp xếp thanh toán A-Z/Z-A">Thanh toán <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                     <th>Thao tác</th>
                                 </tr>
                             </thead>
@@ -352,34 +359,34 @@
                     </div>
                     </div>
                     <div id="history-tab-returns" class="products-tab-content">
-                        <div class="d-flex gap-2 mb-2">
-                            <div class="box stat-card" style="flex:1">
+                        <div class="d-flex gap-2 mb-2 history-kpis">
+                            <div class="box stat-card history-stat-card" style="flex:1">
                                 <div class="stat-label">Hoàn trả</div>
                                 <div class="stat-val" id="returns-total-refund">0 ₫</div>
                             </div>
-                            <div class="box stat-card" style="flex:1">
+                            <div class="box stat-card history-stat-card" style="flex:1">
                                 <div class="stat-label">Số phiếu</div>
                                 <div class="stat-val" id="returns-total-count">0</div>
                             </div>
-                            <div class="box stat-card" style="flex:1">
+                            <div class="box stat-card history-stat-card" style="flex:1">
                                 <div class="stat-label">Thu thêm</div>
                                 <div class="stat-val" id="returns-total-collected">0 ₫</div>
                             </div>
                         </div>
                         <div class="table-wrap">
-                            <table>
+                            <table class="history-table history-returns-table">
                                 <thead>
                                     <tr>
                                         <th style="width:40px;text-align:center;"><input type="checkbox"
                                             id="select-all-returns" onchange="toggleAllReturns(this)"
                                             style="width:18px;height:18px;cursor:pointer;" title="Chọn tất cả"></th>
-                                        <th>Mã phiếu</th>
-                                        <th>Thời gian</th>
-                                        <th>Khách hàng</th>
-                                        <th>Trả</th>
-                                        <th>Đổi</th>
-                                        <th>Chênh lệch</th>
-                                        <th>NV</th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="id" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','id')" title="Sắp xếp mã phiếu A-Z/Z-A">Mã phiếu <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="date" aria-sort="descending"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','date')" title="Sắp xếp ngày mới/cũ">Ngày <span class="sort-indicator" aria-hidden="true">▼</span></button></th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="customer" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','customer')" title="Sắp xếp khách hàng A-Z/Z-A">Khách hàng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="returnCount" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','returnCount')" title="Sắp xếp số mặt hàng trả cao-thấp/thấp-cao">Mặt hàng trả <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="exchangeCount" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','exchangeCount')" title="Sắp xếp số mặt hàng đổi cao-thấp/thấp-cao">Mặt hàng đổi <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="difference" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','difference')" title="Sắp xếp chênh lệch cao-thấp/thấp-cao">Chênh lệch <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-history-sort-view="returns" data-history-sort-key="staff" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleHistorySort('returns','staff')" title="Sắp xếp nhân viên A-Z/Z-A">NV <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                         <th>Thao tác</th>
                                     </tr>
                                 </thead>
@@ -412,16 +419,28 @@
                     <!-- Tab Content: Products -->
                     <div id="products-tab-products" class="products-tab-content active">
                         <!-- Products -->
-                        <div class="box">
-                            <div class="box-head">
+                        <div class="box product-list-box">
+                            <div class="product-list-header">
+                                <div class="product-list-topline">
+                                    <span class="product-list-title">📋 Danh sách sản phẩm</span>
+                                    <div class="d-flex gap-1 product-list-actions">
+                                        <button data-management-mutation class="btn btn-sm btn-secondary" onclick="openImportModal('products')">📤 Nhập
+                                            từ
+                                            file</button>
+                                        <button class="btn btn-sm btn-secondary" onclick="exportProductsExcel()">📥
+                                            Excel</button>
+                                        <button data-management-mutation class="btn btn-sm btn-primary" onclick="openProdModal()">+ Thêm sản phẩm</button>
+                                        <button data-management-mutation id="bulk-delete-products-btn" class="btn btn-sm btn-danger"
+                                            onclick="deleteSelectedProducts()" style="display:none;">🗑️ Xóa (0)</button>
+                                    </div>
+                                </div>
                                 <div class="product-filter-row">
-                                    <span>📋 Danh sách sản phẩm</span>
                                     <select id="prod-filter-cat" style="width:180px; padding:8px;"
                                         onchange="onProductTableFiltersChanged()">
                                         <option value="">Tất cả danh mục</option>
                                     </select>
                                     <input type="text" id="prod-search" placeholder="Tìm sản phẩm..."
-                                        style="width:200px" oninput="onProductTableFiltersChanged()"
+                                        style="width:200px" oninput="onProductTableFiltersChanged(true)"
                                         onkeydown="if(event.key==='Escape'){this.value='';onProductTableFiltersChanged();}">
                                     <div class="product-filter-controls">
                                         <select id="prod-filter-status" onchange="onProductTableFiltersChanged()">
@@ -431,13 +450,17 @@
                                             <option value="out">Hết hàng</option>
                                         </select>
                                         <input type="text" id="prod-price-min" inputmode="numeric" placeholder="Giá từ"
-                                            oninput="onProductTableFiltersChanged()">
+                                            oninput="onProductTableFiltersChanged(true)">
                                         <input type="text" id="prod-price-max" inputmode="numeric" placeholder="Giá đến"
-                                            oninput="onProductTableFiltersChanged()">
+                                            oninput="onProductTableFiltersChanged(true)">
                                         <select id="prod-sort" onchange="onProductTableFiltersChanged()">
                                             <option value="new_desc">Mới nhất</option>
+                                            <option value="code_asc">Mã A-Z</option>
+                                            <option value="code_desc">Mã Z-A</option>
                                             <option value="name_asc">Tên A-Z</option>
                                             <option value="name_desc">Tên Z-A</option>
+                                            <option value="category_asc">Danh mục A-Z</option>
+                                            <option value="category_desc">Danh mục Z-A</option>
                                             <option value="price_asc">Giá bán thấp-cao</option>
                                             <option value="price_desc">Giá bán cao-thấp</option>
                                             <option value="cost_asc" data-admin-only="true">Giá vốn/nhập thấp-cao
@@ -446,41 +469,31 @@
                                             </option>
                                             <option value="stock_asc">Tồn kho thấp-cao</option>
                                             <option value="stock_desc">Tồn kho cao-thấp</option>
+                                            <option value="status_asc">Trạng thái: Hết hàng đến Còn hàng</option>
+                                            <option value="status_desc">Trạng thái: Còn hàng đến Hết hàng</option>
                                         </select>
                                         <button class="btn btn-sm btn-secondary" onclick="resetProductTableFilters()"
                                             title="Xóa bộ lọc">Reset</button>
                                     </div>
                                 </div>
-                                <div class="d-flex gap-1">
-                                    <button data-management-mutation class="btn btn-sm btn-warning" onclick="openImportModal('products')">📤 Nhập
-                                        từ
-                                        file</button>
-                                    <button class="btn btn-sm btn-secondary" onclick="exportProductsExcel()">📥
-                                        Excel</button>
-                                    <button data-management-mutation class="btn btn-sm" onclick="openProdModal()">+ Thêm sản phẩm</button>
-                                    <button data-management-mutation id="bulk-delete-products-btn" class="btn btn-sm btn-danger"
-                                        onclick="deleteSelectedProducts()" style="display:none;">🗑️ Xóa (0)</button>
-                                </div>
                             </div>
                             <div class="table-wrap" style="box-shadow:none; border:none;">
-                                <table>
+                                <table class="product-table">
                                     <thead>
                                         <tr>
-                                            <th style="width:40px;text-align:center;"><input type="checkbox"
+                                            <th class="stock-history-select"><input type="checkbox"
                                                     id="select-all-products" onchange="toggleAllProducts(this)"
                                                     style="width:18px;height:18px;cursor:pointer;" title="Chọn tất cả">
                                             </th>
                                             <th style="width:60px">Ảnh</th>
-                                            <th>Mã</th>
-                                            <th class="sortable-th" onclick="toggleProdNameSort()"
-                                                title="Sắp xếp tên A-Z/Z-A">Tên sản phẩm <span
-                                                    id="prod-name-sort-indicator"></span></th>
-                                            <th>Danh mục</th>
-                                            <th>Giá bán</th>
-                                            <th>Giá vốn</th>
-                                            <th>Tồn kho</th>
-                                            <th>Trạng thái</th>
-                                            <th style="width:120px">Thao tác</th>
+                                            <th class="sortable-th" data-product-sort-key="code" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleProductTableSort('code')" title="Sắp xếp mã A-Z/Z-A">Mã <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-product-sort-key="name" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleProductTableSort('name')" title="Sắp xếp tên A-Z/Z-A">Tên sản phẩm <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-product-sort-key="category" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleProductTableSort('category')" title="Sắp xếp danh mục A-Z/Z-A">Danh mục <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-product-sort-key="price" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleProductTableSort('price')" title="Sắp xếp giá bán thấp-cao/cao-thấp">Giá bán <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-product-sort-key="cost" aria-sort="none"><button type="button" class="sortable-header" data-admin-only-sort="true" onclick="toggleProductTableSort('cost')" title="Sắp xếp giá vốn thấp-cao/cao-thấp">Giá vốn <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-product-sort-key="stock" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleProductTableSort('stock')" title="Sắp xếp tồn kho thấp-cao/cao-thấp">Tồn kho <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-product-sort-key="status" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleProductTableSort('status')" title="Sắp xếp Hết hàng/Sắp hết/Còn hàng">Trạng thái <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th>Thao tác</th>
                                         </tr>
                                     </thead>
                                     <tbody id="prod-body"></tbody>
@@ -493,15 +506,14 @@
                     <div id="products-tab-inventory" class="products-tab-content">
                         <div class="d-flex justify-between items-center mb-2">
                             <span style="font-weight:600; font-size:16px;">📊 Quản lý kho hàng</span>
-                            <div class="d-flex gap-1">
-                                <button data-management-mutation class="btn" onclick="openPurchaseOrderModal()"
-                                    style="background:linear-gradient(135deg, #10B981, #059669);">📦 Tạo đơn
+                            <div class="d-flex gap-1 management-inventory-actions">
+                                <button data-management-mutation class="btn mgmt-action-primary" onclick="openPurchaseOrderModal()">📦 Tạo đơn
                                     nhập</button>
-                                <button data-management-mutation class="btn btn-success" onclick="openStockInModal()">📥 Nhập lẻ</button>
-                                <button data-management-mutation class="btn btn-warning" onclick="openStockOutModal()">📤 Xuất kho</button>
-                                <button data-management-mutation class="btn btn-secondary" onclick="openInventoryCheckModal()">📋 Kiểm
+                                <button data-management-mutation class="btn mgmt-action-soft mgmt-action-in" onclick="openStockInModal()">📥 Nhập lẻ</button>
+                                <button data-management-mutation class="btn mgmt-action-soft mgmt-action-out" onclick="openStockOutModal()">📤 Xuất kho</button>
+                                <button data-management-mutation class="btn mgmt-action-soft mgmt-action-check" onclick="openInventoryCheckModal()">📋 Kiểm
                                     kho</button>
-                                <button class="btn btn-secondary" onclick="openPOHistoryModal()">📜 Lịch sử
+                                <button class="btn mgmt-action-history" onclick="openPOHistoryModal()">📜 Lịch sử
                                     nhập</button>
                             </div>
                         </div>
@@ -538,6 +550,9 @@
                                         <option value="out">Xuất kho</option>
                                         <option value="adjust">Điều chỉnh</option>
                                     </select>
+                                    <input type="text" id="inv-stock-search" placeholder="Tìm mã hoặc tên hàng..."
+                                        style="width:210px" oninput="onInventoryStockHistorySearchChanged()"
+                                        onkeydown="if(event.key==='Escape'){this.value='';renderInventoryStockHistory();}">
                                 </div>
                             </div>
                             <div class="table-wrap"
@@ -549,15 +564,15 @@
                                                     id="select-all-inv-stock" onchange="toggleAllStockEntries(this)"
                                                     style="width:18px;height:18px;cursor:pointer;" title="Chọn tất cả">
                                             </th>
-                                            <th>Thời gian</th>
-                                            <th>Loại</th>
-                                            <th>Sản phẩm</th>
-                                            <th>Số lượng</th>
-                                            <th>Đơn giá</th>
-                                            <th>Thành tiền</th>
+                                            <th class="sortable-th" data-stock-history-view="inventory" data-stock-history-sort-key="date" aria-sort="descending"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('inventory','date')" title="Sắp xếp thời gian mới/cũ">Thời gian <span class="sort-indicator" aria-hidden="true">▼</span></button></th>
+                                            <th class="stock-history-type">Loại</th>
+                                            <th class="sortable-th" data-stock-history-view="inventory" data-stock-history-sort-key="product" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('inventory','product')" title="Sắp xếp sản phẩm A-Z/Z-A">Sản phẩm <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-stock-history-view="inventory" data-stock-history-sort-key="qty" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('inventory','qty')" title="Sắp xếp số lượng thấp-cao/cao-thấp">Số lượng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-stock-history-view="inventory" data-stock-history-sort-key="price" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('inventory','price')" title="Sắp xếp đơn giá thấp-cao/cao-thấp">Đơn giá <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-stock-history-view="inventory" data-stock-history-sort-key="total" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('inventory','total')" title="Sắp xếp thành tiền thấp-cao/cao-thấp">Thành tiền <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                             <th>Ghi chú</th>
-                                            <th>Người thực hiện</th>
-                                            <th style="width:80px">Thao tác</th>
+                                            <th class="stock-history-user">Người thực hiện</th>
+                                            <th class="stock-history-actions">Thao tác</th>
                                         </tr>
                                     </thead>
                                     <tbody id="inv-stock-history-body"></tbody>
@@ -574,15 +589,15 @@
                         </div>
                         <div class="box">
                             <div class="table-wrap" style="box-shadow:none; border:none;">
-                                <table>
+                                <table class="supplier-table">
                                     <thead>
                                         <tr>
-                                            <th>Tên NCC</th>
+                                            <th class="sortable-th" data-supplier-sort-key="name" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleSupplierSort('name')" title="Sắp xếp tên NCC A-Z/Z-A">Tên NCC <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                             <th>Người liên hệ</th>
                                             <th>Số điện thoại</th>
                                             <th>Email</th>
                                             <th>Địa chỉ</th>
-                                            <th>Công nợ</th>
+                                            <th class="sortable-th" data-supplier-sort-key="debt" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleSupplierSort('debt')" title="Sắp xếp công nợ cao-thấp/thấp-cao">Công nợ <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                             <th style="width:100px">Thao tác</th>
                                         </tr>
                                     </thead>
@@ -614,15 +629,14 @@
                     <div id="mgmt-tab-inventory" class="mgmt-tab-content active">
                         <div class="d-flex justify-between items-center mb-2">
                             <span style="font-weight:600; font-size:16px;">📦 Quản lý kho hàng</span>
-                            <div class="d-flex gap-1">
-                                <button data-management-mutation class="btn" onclick="openPurchaseOrderModal()"
-                                    style="background:linear-gradient(135deg, #10B981, #059669);">📦 Tạo đơn
+                            <div class="d-flex gap-1 management-inventory-actions">
+                                <button data-management-mutation class="btn mgmt-action-primary" onclick="openPurchaseOrderModal()">📦 Tạo đơn
                                     nhập</button>
-                                <button data-management-mutation class="btn btn-success" onclick="openStockInModal()">📥 Nhập lẻ</button>
-                                <button data-management-mutation class="btn btn-warning" onclick="openStockOutModal()">📤 Xuất kho</button>
-                                <button data-management-mutation class="btn btn-secondary" onclick="openInventoryCheckModal()">📋 Kiểm
+                                <button data-management-mutation class="btn mgmt-action-soft mgmt-action-in" onclick="openStockInModal()">📥 Nhập lẻ</button>
+                                <button data-management-mutation class="btn mgmt-action-soft mgmt-action-out" onclick="openStockOutModal()">📤 Xuất kho</button>
+                                <button data-management-mutation class="btn mgmt-action-soft mgmt-action-check" onclick="openInventoryCheckModal()">📋 Kiểm
                                     kho</button>
-                                <button class="btn btn-secondary" onclick="openPOHistoryModal()">📜 Lịch sử
+                                <button class="btn mgmt-action-history" onclick="openPOHistoryModal()">📜 Lịch sử
                                     nhập</button>
                             </div>
                         </div>
@@ -651,13 +665,36 @@
                         <div class="box">
                             <div class="box-head">
                                 <span>📜 Lịch sử nhập/xuất kho</span>
-                                <div class="d-flex gap-1 items-center">
+                                <div class="d-flex gap-1 items-center management-stock-history-filters">
                                     <select id="stock-filter" style="width:150px" onchange="renderStockHistory()">
                                         <option value="all">Tất cả</option>
                                         <option value="in">Nhập kho</option>
                                         <option value="out">Xuất kho</option>
                                         <option value="adjust">Điều chỉnh</option>
                                     </select>
+                                    <div class="date-filter-dropdown" id="stock-date-filter-dropdown">
+                                        <button type="button" class="btn btn-secondary date-filter-btn" aria-label="Lọc ngày lịch sử kho" onclick="toggleDateFilter('stock')">
+                                            <span id="stock-date-filter-label">📅 Tất cả</span>
+                                            <span style="margin-left:8px" aria-hidden="true">▼</span>
+                                        </button>
+                                        <div class="date-filter-menu" id="stock-date-filter-menu">
+                                            <div class="date-filter-presets">
+                                                <button type="button" class="date-preset-btn" onclick="setDatePreset('stock', 'today')">Hôm nay</button>
+                                                <button type="button" class="date-preset-btn" onclick="setDatePreset('stock', 'yesterday')">Hôm qua</button>
+                                                <button type="button" class="date-preset-btn" onclick="setDatePreset('stock', 'week')">7 ngày qua</button>
+                                                <button type="button" class="date-preset-btn" onclick="setDatePreset('stock', 'month')">30 ngày qua</button>
+                                                <button type="button" class="date-preset-btn" onclick="setDatePreset('stock', 'quarter')">Quý này</button>
+                                                <button type="button" class="date-preset-btn" onclick="setDatePreset('stock', 'year')">Năm nay</button>
+                                                <button type="button" class="date-preset-btn active" onclick="setDatePreset('stock', 'all')">Tất cả</button>
+                                            </div>
+                                            <div id="stock-calendar-container" onclick="event.stopPropagation()"></div>
+                                            <input type="hidden" id="stock-date-from">
+                                            <input type="hidden" id="stock-date-to">
+                                        </div>
+                                    </div>
+                                    <input type="text" id="stock-search" placeholder="Tìm mã hoặc tên hàng..."
+                                        style="width:210px" oninput="onManagementStockHistorySearchChanged()"
+                                        onkeydown="if(event.key==='Escape'){this.value='';renderStockHistory();}">
                                     <button class="btn btn-sm btn-secondary" onclick="exportStockHistoryExcel()">📥
                                         Excel</button>
                                     <button class="btn btn-sm btn-secondary" onclick="exportStockHistoryPDF()">📄
@@ -668,26 +705,30 @@
                                 </div>
                             </div>
                             <div class="table-wrap" style="box-shadow:none; border:none;">
-                                <table>
+                                <table class="stock-history-table">
                                     <thead>
                                         <tr>
-                                            <th style="width:40px;text-align:center;"><input data-management-mutation type="checkbox"
+                                            <th class="stock-history-select"><input data-management-mutation type="checkbox"
                                                     id="select-all-stock" onchange="toggleAllStockEntries(this)"
                                                     style="width:18px;height:18px;cursor:pointer;" title="Chọn tất cả">
                                             </th>
-                                            <th>Thời gian</th>
-                                            <th>Loại</th>
-                                            <th>Sản phẩm</th>
-                                            <th>Số lượng</th>
-                                            <th>Giá</th>
-                                            <th>Tổng tiền</th>
+                                            <th class="sortable-th" data-stock-history-view="management" data-stock-history-sort-key="date" aria-sort="descending"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('management','date')" title="Sắp xếp thời gian mới/cũ">Thời gian <span class="sort-indicator" aria-hidden="true">▼</span></button></th>
+                                            <th class="stock-history-type">Loại</th>
+                                            <th class="sortable-th" data-stock-history-view="management" data-stock-history-sort-key="product" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('management','product')" title="Sắp xếp sản phẩm A-Z/Z-A">Sản phẩm <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-stock-history-view="management" data-stock-history-sort-key="qty" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('management','qty')" title="Sắp xếp số lượng thấp-cao/cao-thấp">Số lượng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-stock-history-view="management" data-stock-history-sort-key="price" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('management','price')" title="Sắp xếp giá thấp-cao/cao-thấp">Giá <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                            <th class="sortable-th" data-stock-history-view="management" data-stock-history-sort-key="total" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStockHistorySort('management','total')" title="Sắp xếp tổng tiền thấp-cao/cao-thấp">Tổng tiền <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                             <th>Ghi chú</th>
-                                            <th>Người thực hiện</th>
-                                            <th style="width:80px">Thao tác</th>
+                                            <th class="stock-history-user">Người thực hiện</th>
+                                            <th class="stock-history-actions">Thao tác</th>
                                         </tr>
                                     </thead>
                                     <tbody id="mgmt-stock-history-body"></tbody>
                                 </table>
+                            </div>
+                            <div id="mgmt-stock-history-pagination" class="d-flex justify-between items-center" style="padding:12px 4px 0;">
+                                <span id="mgmt-stock-history-count" style="font-size:13px;color:var(--text-muted);"></span>
+                                <button type="button" id="mgmt-stock-history-more" class="btn btn-sm btn-secondary" onclick="showMoreManagementStockHistory()">Xem thêm 50</button>
                             </div>
                         </div>
                     </div><!-- End Inventory Tab -->
@@ -755,6 +796,7 @@
                                 <div class="stat-val" id="mgmt-customers">0</div>
                             </div>
                         </div>
+                        <div id="mgmt-reconciliation" class="box" style="margin-bottom:16px;"></div>
 
                         <!-- Chart and Products Section -->
                         <div class="d-flex gap-2" style="min-height:480px">
@@ -768,7 +810,7 @@
                                 <div class="box" style="flex:1; overflow:hidden">
                                     <div class="box-head d-flex justify-between items-center"
                                         style="padding:10px 12px; font-size:13px">
-                                        <span>🏆 Bán chạy nhất</span>
+                                        <span>🏆 Doanh thu cao nhất</span>
                                         <button class="product-expand-btn" onclick="toggleProductList('top')">🔽 Mở
                                             rộng</button>
                                     </div>
@@ -778,7 +820,7 @@
                                 <div class="box" style="flex:1; overflow:hidden">
                                     <div class="box-head d-flex justify-between items-center"
                                         style="padding:10px 12px; font-size:13px">
-                                        <span>📉 Bán ít nhất</span>
+                                        <span>📉 Doanh thu thấp nhất (đã bán)</span>
                                         <button class="product-expand-btn" onclick="toggleProductList('worst')">🔽 Mở
                                             rộng</button>
                                     </div>
@@ -810,12 +852,12 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Tên nhà cung cấp</th>
+                                    <th class="sortable-th" data-supplier-sort-key="name" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleSupplierSort('name')" title="Sắp xếp tên NCC A-Z/Z-A">Tên nhà cung cấp <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                     <th>Người liên hệ</th>
                                     <th>Điện thoại</th>
                                     <th>Email</th>
                                     <th>Địa chỉ</th>
-                                    <th>Công nợ</th>
+                                    <th class="sortable-th" data-supplier-sort-key="debt" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleSupplierSort('debt')" title="Sắp xếp công nợ cao-thấp/thấp-cao">Công nợ <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                     <th>Thao tác</th>
                                 </tr>
                             </thead>
@@ -828,47 +870,47 @@
             <!-- 6. CUSTOMERS -->
             <div id="customers-view" class="view">
                 <div class="page-padding">
-                    <div class="d-flex justify-between items-center mb-2">
+                    <div class="d-flex justify-between items-center mb-2 customer-page-header">
                         <h2 class="section-title">👥 Khách hàng</h2>
-                        <div class="d-flex gap-1">
-                            <input type="text" id="cust-search" placeholder="🔍 Tìm khách hàng..." style="width:250px"
-                                oninput="renderCustTable()">
-                            <button class="btn btn-sm btn-warning" onclick="openImportModal('customers')">📤 Nhập từ
+                        <div class="d-flex gap-1 customer-toolbar">
+                            <input type="text" id="cust-search" placeholder="🔍 Tìm khách hàng..." class="customer-search"
+                                oninput="debouncedCustSearch()">
+                            <button class="btn btn-sm btn-warning customer-import-button" onclick="openImportModal('customers')">📤 Nhập từ
                                 file</button>
                             <button class="btn btn-sm btn-secondary" onclick="exportCustomersExcel()">📥
                                 Excel</button>
                             <button class="btn btn-sm btn-secondary" onclick="exportCustomersPDF()">📄 PDF</button>
-                            <button class="btn" onclick="openCustModal()">+ Thêm khách</button>
+                            <button class="btn customer-add-button" onclick="openCustModal()">+ Thêm khách</button>
                         </div>
                     </div>
 
                     <!-- Customer Summary -->
-                    <div class="d-flex gap-2 mb-2">
-                        <div class="box stat-card" style="flex:1">
+                    <div class="d-flex gap-2 mb-2 customer-kpis">
+                        <div class="box stat-card customer-stat-card" style="flex:1">
                             <div class="stat-label">Tổng khách hàng</div>
                             <div class="stat-val" id="cust-total">0</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card customer-stat-card" style="flex:1">
                             <div class="stat-label">👑 Khách VIP</div>
                             <div class="stat-val" id="cust-vip">0</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card customer-stat-card" style="flex:1">
                             <div class="stat-label">💰 Tổng công nợ</div>
                             <div class="stat-val" id="cust-total-debt">0 ₫</div>
                         </div>
                     </div>
 
                     <div class="table-wrap">
-                        <table>
+                        <table class="customer-table">
                             <thead>
                                 <tr>
-                                    <th>Khách hàng</th>
-                                    <th>Nhóm</th>
+                                    <th class="sortable-th" data-customer-sort-key="name" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleCustomerSort('name')" title="Sắp xếp khách hàng A-Z/Z-A">Khách hàng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-customer-sort-key="group" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleCustomerSort('group')" title="Sắp xếp nhóm Thường/Bạc/Vàng/VIP">Nhóm <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                     <th>Điện thoại</th>
                                     <th>Địa chỉ</th>
-                                    <th>Điểm tích lũy</th>
-                                    <th>Công nợ</th>
-                                    <th>Tổng mua</th>
+                                    <th class="sortable-th" data-customer-sort-key="points" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleCustomerSort('points')" title="Sắp xếp điểm cao-thấp/thấp-cao">Điểm tích lũy <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-customer-sort-key="debt" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleCustomerSort('debt')" title="Sắp xếp công nợ cao-thấp/thấp-cao">Công nợ <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                    <th class="sortable-th" data-customer-sort-key="totalBuy" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleCustomerSort('totalBuy')" title="Sắp xếp tổng mua cao-thấp/thấp-cao">Tổng mua <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                     <th>Thao tác</th>
                                 </tr>
                             </thead>
@@ -881,80 +923,80 @@
             <!-- 7. STAFF VIEW - Employee Management & Salary -->
             <div id="staff-view" class="view">
                 <div class="page-padding">
-                    <div class="d-flex justify-between items-center mb-2">
+                    <div class="d-flex justify-between items-center mb-2 staff-page-header">
                         <h2 class="section-title">👔 Quản lý nhân viên</h2>
-                        <div class="d-flex gap-1 items-center">
+                        <div class="d-flex gap-1 items-center staff-toolbar">
                             <input type="text" id="staff-search" placeholder="🔍 Tìm theo mã hoặc tên..."
-                                style="width:200px" oninput="renderStaffView()">
-                            <select id="staff-period" style="width:150px" onchange="renderStaffView()">
+                                class="staff-search" oninput="debouncedStaffSearch()">
+                            <select id="staff-period" class="staff-period" onchange="renderStaffView()">
                                 <option value="day">Hôm nay</option>
                                 <option value="week">Tuần này</option>
                                 <option value="month" selected>Tháng này</option>
                                 <option value="year">Năm nay</option>
                             </select>
-                            <button class="btn btn-sm btn-secondary" onclick="exportStaffSalaryExcel()">📥
+                            <button class="btn btn-sm btn-secondary staff-export-button" onclick="exportStaffSalaryExcel()">📥
                                 Excel</button>
-                            <button class="btn btn-sm btn-secondary" onclick="exportStaffSalaryPDF()">📄
+                            <button class="btn btn-sm btn-secondary staff-export-button" onclick="exportStaffSalaryPDF()">📄
                                 PDF</button>
-                            <button class="btn btn-sm" onclick="openUserModal()">+ Thêm NV</button>
+                            <button class="btn btn-sm staff-add-button" onclick="openUserModal()">+ Thêm NV</button>
                         </div>
                     </div>
 
                     <!-- Staff Stats Cards -->
-                    <div class="d-flex gap-2 mb-2">
-                        <div class="box stat-card" style="flex:1">
+                    <div class="d-flex gap-2 mb-2 staff-kpis">
+                        <div class="box stat-card staff-stat-card" style="flex:1">
                             <div class="stat-label">💰 Tổng lương</div>
                             <div class="stat-val" id="staff-total-salary" style="color:var(--success)">0 ₫</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card staff-stat-card" style="flex:1">
                             <div class="stat-label">👥 Số nhân viên</div>
                             <div class="stat-val" id="staff-count">0</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card staff-stat-card" style="flex:1">
                             <div class="stat-label">📈 Tổng doanh thu</div>
                             <div class="stat-val" id="staff-total-revenue" style="color:var(--primary)">0 ₫</div>
                         </div>
-                        <div class="box stat-card" style="flex:1">
+                        <div class="box stat-card staff-stat-card" style="flex:1">
                             <div class="stat-label">🧾 Tổng đơn hàng</div>
                             <div class="stat-val" id="staff-total-orders">0</div>
                         </div>
                     </div>
 
-                    <div class="d-flex gap-2" style="margin-bottom: 24px;">
+                    <div class="d-flex gap-2 staff-overview">
                         <!-- Staff Chart -->
-                        <div class="box" style="flex:1; display:flex; flex-direction:column; height:280px;">
+                        <div class="box staff-overview-panel staff-chart-panel">
                             <div class="box-head">📊 Biểu đồ doanh thu nhân viên</div>
-                            <div class="chart-container" style="flex:1; position:relative;">
+                            <div class="chart-container staff-chart-container">
                                 <canvas id="staff-chart"></canvas>
+                                <div id="staff-chart-empty" class="staff-chart-empty" role="status" hidden>Chưa có doanh thu trong kỳ</div>
                             </div>
                         </div>
                         <!-- Staff Cards -->
-                        <div class="box" style="flex:1; display:flex; flex-direction:column; height:280px;">
+                        <div class="box staff-overview-panel staff-directory-panel">
                             <div class="box-head">👤 Danh sách nhân viên</div>
-                            <div id="user-cards-container" class="d-flex flex-wrap gap-1"
-                                style="flex:1; overflow-y:auto; padding:8px;"></div>
+                            <div id="user-cards-container" class="d-flex flex-wrap gap-1 staff-user-cards"></div>
                         </div>
                     </div>
 
                     <!-- Staff Salary Table -->
-                    <div class="box">
+                    <div class="box staff-salary-panel">
                         <div class="box-head d-flex justify-between items-center">
                             <span>💼 Bảng lương nhân viên</span>
-                            <span style="font-size:12px; color:var(--text-muted);">Tính theo kỳ đã chọn</span>
+                            <span class="staff-period-note">Tính theo kỳ đã chọn</span>
                         </div>
                         <div class="table-wrap" style="box-shadow:none; border:none;">
-                            <table>
+                            <table class="staff-salary-table">
                                 <thead>
                                     <tr>
-                                        <th style="width:50px">STT</th>
-                                        <th>Mã NV</th>
-                                        <th>Tên nhân viên</th>
-                                        <th style="text-align:right">Lương cứng</th>
-                                        <th style="text-align:right">% Hoa hồng</th>
-                                        <th style="text-align:right">Doanh thu</th>
-                                        <th style="text-align:center">Đơn hàng</th>
-                                        <th style="text-align:right">Tiền HH</th>
-                                        <th style="text-align:right">Tổng lương</th>
+                                        <th>STT</th>
+                                        <th class="sortable-th" data-staff-sort-key="code" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('code')" title="Sắp xếp mã nhân viên A-Z/Z-A">Mã NV <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="name" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('name')" title="Sắp xếp tên nhân viên A-Z/Z-A">Tên nhân viên <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="base" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('base')" title="Sắp xếp lương cứng cao-thấp/thấp-cao">Lương cứng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="commissionRate" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('commissionRate')" title="Sắp xếp hoa hồng cao-thấp/thấp-cao">% Hoa hồng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="revenue" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('revenue')" title="Sắp xếp doanh thu cao-thấp/thấp-cao">Doanh thu <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="orders" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('orders')" title="Sắp xếp đơn hàng cao-thấp/thấp-cao">Đơn hàng <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="commission" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('commission')" title="Sắp xếp tiền hoa hồng cao-thấp/thấp-cao">Tiền HH <span class="sort-indicator" aria-hidden="true"></span></button></th>
+                                        <th class="sortable-th" data-staff-sort-key="total" aria-sort="none"><button type="button" class="sortable-header" onclick="toggleStaffSalarySort('total')" title="Sắp xếp tổng lương cao-thấp/thấp-cao">Tổng lương <span class="sort-indicator" aria-hidden="true"></span></button></th>
                                     </tr>
                                 </thead>
                                 <tbody id="staff-salary-body"></tbody>
@@ -971,7 +1013,7 @@
                         <h2 class="section-title">📊 Tổng quan kinh doanh</h2>
                         <div class="d-flex gap-1">
                             <input type="text" id="report-staff-search" placeholder="🔍 Mã hoặc tên NV..."
-                                style="width:180px" oninput="renderDashboard()">
+                                style="width:180px" oninput="debouncedDashboardSearch()">
                             <select id="report-period" style="width:150px" onchange="renderDashboard()">
                                 <option value="today">Hôm nay</option>
                                 <option value="week">Tuần này</option>
@@ -1073,8 +1115,15 @@
             <div id="settings-view" class="view">
                 <div class="page-padding">
                     <h2 class="section-title">⚙️ Cài đặt hệ thống</h2>
+                    <div class="settings-search-wrap">
+                        <input type="search" id="settings-search" class="input" placeholder="🔍 Tìm cài đặt..."
+                            aria-label="Tìm cài đặt" aria-controls="settings-grid" autocomplete="off">
+                        <button type="button" id="settings-search-clear" class="btn btn-sm btn-secondary" hidden
+                            onclick="clearSettingsSearch()">Xóa</button>
+                    </div>
+                    <div id="settings-search-status" class="settings-search-status" role="status" aria-live="polite"></div>
                     <!-- Staff Change Password Section -->
-                    <div id="staff-password-section" class="box mb-2"
+                    <div id="staff-password-section" class="box mb-2" data-settings-search="doi mat khau mật khẩu tai khoan tài khoản"
                         style="background:linear-gradient(135deg, var(--primary-light), var(--bg-muted)); display:none;">
                         <div class="d-flex justify-between items-center">
                             <div>
@@ -1089,13 +1138,23 @@
                         </div>
                     </div>
 
-                    <div class="settings-grid">
+                    <div id="settings-grid" class="settings-grid">
+                        <div id="notification-section" class="box settings-collapsible" data-settings-search="thông báo thong bao bật tắt bat tat cảnh báo lỗi quét mã">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                                🔔 Thông báo <span class="toggle-icon">▼</span>
+                            </button>
+                            <div class="settings-content">
+                                <label class="notification-option"><input type="checkbox" id="set-notifications-enabled"><span>Bật thông báo</span></label>
+                                <p class="notification-settings-note">Bỏ chọn để tắt toàn bộ thông báo ngắn, kể cả lỗi/cảnh báo. Kiểm tra an toàn và hộp xác nhận vẫn hoạt động; bạn có thể không thấy lý do thao tác thất bại. Lựa chọn chỉ áp dụng sau khi lưu.</p>
+                                <div id="notification-settings-list"></div>
+                            </div>
+                        </div>
                         <!-- Store Info -->
-                        <div id="store-info-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="store-info-section" class="box settings-collapsible" data-settings-search="thong tin cua hang tên địa chỉ so dien thoai lời chào bill">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 🏪 Thông tin cửa hàng
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
                                 <div class="mb-2"><label class="label">Tên cửa hàng</label><input type="text"
                                         id="set-name" class="input"></div>
@@ -1105,21 +1164,20 @@
                                         id="set-phone" class="input"></div>
                                 <div class="mb-2"><label class="label">Lời chào (Bill)</label><input type="text"
                                         id="set-footer" class="input"></div>
-                                <button class="btn btn-sm mt-2" onclick="saveSets()">💾 Lưu thông tin</button>
                             </div>
                         </div>
 
                         <!-- Payment & QR -->
-                        <div id="payment-qr-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="payment-qr-section" class="box settings-collapsible" data-settings-search="thanh toan qr ngân hàng so tai khoan chủ tài khoản mã qr">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 💳 Thanh toán & QR
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
-                                <div class="d-flex mb-2">
-                                    <div style="flex:1"><label class="label">Ngân hàng</label><input type="text"
+                                <div class="settings-field-pair mb-2">
+                                    <div><label class="label">Ngân hàng</label><input type="text"
                                             id="set-bank" class="input"></div>
-                                    <div style="flex:1"><label class="label">Số tài khoản</label><input type="text"
+                                    <div><label class="label">Số tài khoản</label><input type="text"
                                             id="set-num" class="input"></div>
                                 </div>
                                 <div class="mb-2"><label class="label">Chủ tài khoản</label><input type="text"
@@ -1127,7 +1185,7 @@
                                 <label class="label mt-2">QR Code (Ảnh)</label>
                                 <input type="file" id="set-qr-file" accept="image/*" onchange="handleQR(this)"
                                     class="mt-1">
-                                <div style="text-align:center; margin-top:10px;">
+                                <div class="settings-qr-preview">
                                     <img id="set-qr-view"
                                         style="max-height:100px; display:none; border-radius:8px; border:2px solid var(--border-light);">
                                 </div>
@@ -1135,21 +1193,18 @@
                         </div>
 
                         <!-- Hardware - Collapsible -->
-                        <div id="hardware-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="hardware-section" class="box settings-collapsible" data-settings-search="may in phần cứng thiết bị printer kho giay in am thanh in am tham">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 🖨️ Máy in & Phần cứng
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
                                 <!-- Device Detection Status -->
-                                <div id="device-detection-panel"
-                                    style="background:var(--bg-muted); padding:12px; border-radius:var(--radius-md); margin-bottom:12px;">
-                                    <div
-                                        style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-                                        <span style="font-weight:600; font-size:13px;">📡 Thiết bị được phát
+                                <div id="device-detection-panel" class="settings-device-panel">
+                                    <div class="settings-device-panel-head">
+                                        <span>📡 Thiết bị được phát
                                             hiện</span>
-                                        <button class="btn btn-sm btn-secondary" onclick="detectDevices()"
-                                            style="font-size:11px;">
+                                        <button class="btn btn-sm btn-secondary" onclick="detectDevices()">
                                             🔄 Quét lại
                                         </button>
                                     </div>
@@ -1186,14 +1241,14 @@
                         </div>
 
                         <!-- Label Printer Settings - Collapsible & Enhanced -->
-                        <div id="label-printer-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="label-printer-section" class="box settings-collapsible" data-settings-search="may in tem nhan nhãn kho giay cuon cot kich thuoc gap">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 🏷️ Máy in tem nhãn
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
-                                <div class="d-flex gap-2 mb-2">
-                                    <div style="flex:1">
+                                <div class="settings-field-pair mb-2">
+                                    <div>
                                         <label class="label">Khổ giấy cuộn (width)</label>
                                         <select id="set-label-paper" class="input">
                                             <option value="110" selected>110mm (3 cột)</option>
@@ -1201,7 +1256,7 @@
                                             <option value="60">60mm (1-2 cột)</option>
                                         </select>
                                     </div>
-                                    <div style="flex:1">
+                                    <div>
                                         <label class="label">Số cột tem / hàng</label>
                                         <select id="set-label-columns" class="input">
                                             <option value="1">1 cột</option>
@@ -1210,8 +1265,8 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div class="d-flex gap-2 mb-2">
-                                    <div style="flex:1">
+                                <div class="settings-field-pair mb-2">
+                                    <div>
                                         <label class="label">Kích thước tem</label>
                                         <select id="set-label-size" class="input">
                                             <option value="35x22" selected>35 x 22 mm</option>
@@ -1222,7 +1277,7 @@
                                             <option value="100x50">100 x 50 mm</option>
                                         </select>
                                     </div>
-                                    <div style="flex:1">
+                                    <div>
                                         <label class="label">Khoảng cách (gap)</label>
                                         <select id="set-label-gap" class="input">
                                             <option value="0">0mm - Không gap</option>
@@ -1232,8 +1287,7 @@
                                         </select>
                                     </div>
                                 </div>
-                                <div
-                                    style="font-size:11px; color:var(--text-muted); padding:8px; background:var(--bg-muted); border-radius:var(--radius-sm);">
+                                <div class="settings-helper">
                                     💡 <strong>Mẹo:</strong> Đo kích thước cuộn tem của bạn và chọn đúng khổ giấy.<br>
                                     Phổ biến: Cuộn 110mm với tem 35x22mm (3 cột) hoặc cuộn 80mm (2 cột)
                                 </div>
@@ -1241,61 +1295,65 @@
                         </div>
 
                         <!-- Barcode Scanner Settings - Collapsible & Simplified -->
-                        <div id="barcode-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="barcode-section" class="box settings-collapsible" data-settings-search="may quet ma vach mã vạch scanner quét them gio hang popup so luong">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 📷 Máy quét mã vạch
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
-                                <div class="settings-check">
-                                    <input type="checkbox" id="set-scanner-popup" checked>
-                                    <span>Hiện popup xác nhận khi quét</span>
+                                <div class="mb-2">
+                                    <label class="label" for="set-scanner-mode">Cách xử lý sau khi quét</label>
+                                    <select id="set-scanner-mode" class="input">
+                                        <option value="auto">Tự động thêm vào giỏ hàng</option>
+                                        <option value="popup">Hiện popup chọn số lượng</option>
+                                        <option value="find">Chỉ tìm và hiển thị sản phẩm</option>
+                                    </select>
                                 </div>
-                                <div class="settings-check">
-                                    <input type="checkbox" id="set-scanner-auto-add">
-                                    <span>Tự động thêm vào giỏ hàng (bỏ qua popup)</span>
-                                </div>
-                                <div
-                                    style="font-size:11px; color:var(--text-muted); padding:8px; background:var(--bg-muted); border-radius:var(--radius-sm); margin-top:8px;">
+                                <div class="settings-helper mt-1">
                                     💡 Tự động nhận diện: YHD, Honeywell, Datalogic, Zebra, Newland...
                                 </div>
                             </div>
                         </div>
 
                         <!-- Interface -->
-                        <div id="ui-data-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="ui-data-section" class="box settings-collapsible" data-settings-search="giao dien du lieu theme kich thuoc ui tồn kho backup sao luu khôi phục export restore">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 🎨 Giao diện & Dữ liệu
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
-                                <div class="mb-2">
+                                <section class="settings-subsection">
+                                    <div class="settings-subsection-title">Giao diện</div>
+                                    <div class="mb-2">
                                     <label class="label">Giao diện (Theme)</label>
                                     <select id="set-theme" class="input" onchange="applyTheme(this.value)">
                                         <option value="light">☀️ Sáng (Light)</option>
                                         <option value="dark">🌙 Tối (Dark)</option>
                                     </select>
-                                </div>
-                                <div class="mb-2">
+                                    </div>
+                                    <div class="mb-2">
                                     <label class="label">Kích thước giao diện</label>
                                     <select id="set-ui-size" class="input" onchange="applyUISize(this.value)">
                                         <option value="small">📐 Nhỏ - Gọn gàng, nhiều thông tin</option>
                                         <option value="medium" selected>📏 Vừa - Cân đối (Mặc định)</option>
                                         <option value="large">🔍 Lớn - Rõ ràng, dễ đọc</option>
                                     </select>
-                                    <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">
+                                    <div class="settings-helper settings-helper-plain">
                                         💡 Thay đổi kích thước chữ, nút và các khung trong toàn bộ ứng dụng
                                     </div>
-                                </div>
-                                <div class="mb-2">
+                                    </div>
+                                    <div class="mb-2">
                                     <label class="label">Ngưỡng cảnh báo tồn kho</label>
                                     <input type="number" id="set-low-stock" class="input" value="5" min="1">
-                                </div>
-                                <div class="settings-check mb-2">
+                                    </div>
+                                </section>
+                                <section class="settings-subsection">
+                                    <div class="settings-subsection-title">Sao lưu tự động</div>
+                                    <div class="settings-check mb-2">
                                     <input type="checkbox" id="set-backup" checked onchange="toggleBackupInterval()">
-                                    <span>Tự động sao lưu</span>
-                                </div>
-                                <div id="backup-interval-container" class="mb-2">
+                                    <span>Tự động sao lưu trong ứng dụng</span>
+                                    </div>
+                                    <div id="backup-interval-container" class="mb-2">
                                     <label class="label">Chu kỳ sao lưu tự động</label>
                                     <select id="set-backup-interval" class="input">
                                         <option value="hourly">Mỗi 1 giờ</option>
@@ -1305,61 +1363,64 @@
                                     </select>
                                     <label class="label" style="margin-top:8px;">Số bản backup tối đa</label>
                                     <input type="number" id="set-backup-limit" class="input" value="60" min="3" max="1000">
-                                    <div style="font-size:11px; color:var(--text-muted); margin-top:6px;">
+                                    <div class="settings-helper settings-helper-plain">
                                         Ứng dụng giữ lại các bản mới nhất và tự xóa bản cũ nhất khi vượt giới hạn.
                                     </div>
-                                    <div id="backup-stats" style="font-size:11px; color:var(--text-muted); margin-top:6px;">
+                                    <div id="backup-stats" class="settings-helper settings-helper-plain">
                                         Đang kiểm tra backup...
                                     </div>
                                     <button class="btn btn-sm btn-secondary mt-2" onclick="cleanupBackupsNow()">Dọn backup cũ</button>
-                                </div>
-                                <div
-                                    style="border-top:1px dashed var(--border-light); margin-top:10px; padding-top:10px;">
-                                    <p style="font-size:11px; color:var(--text-muted); margin-bottom:8px;">Sao lưu &
-                                        Khôi
-                                        phục thủ công:</p>
+                                    </div>
+                                </section>
+                                <section class="settings-subsection settings-manual-backup">
+                                    <div class="settings-subsection-title">Sao lưu và khôi phục thủ công</div>
+                                    <p class="settings-helper settings-helper-plain">Xuất hoặc khôi phục file JSON thủ công.</p>
                                     <div class="settings-action-row">
-                                        <button class="btn btn-sm btn-success" onclick="exportData()" style="flex:1">⬇️
-                                            Sao
-                                            lưu</button>
-                                        <div style="flex:1; position:relative; overflow:hidden;">
-                                            <button class="btn btn-sm btn-warning" style="width:100%">⬆️ Khôi
-                                                phục</button>
-                                            <input type="file" id="restore-file" accept=".json" onchange="importData()"
-                                                style="opacity:0; position:absolute; top:0; left:0; width:100%; height:100%; cursor:pointer;">
+                                        <button class="btn btn-sm btn-success" onclick="exportData()">⬇️ Xuất file backup</button>
+                                        <div class="settings-restore-picker">
+                                            <button class="btn btn-sm btn-warning">⬆️ Chọn file khôi phục</button>
+                                            <input type="file" id="restore-file" accept=".json" onchange="prepareRestoreData(this)"
+                                                class="settings-restore-file">
                                         </div>
                                     </div>
-                                </div>
+                                    <div id="restore-preview" class="restore-preview" hidden>
+                                        <div id="restore-preview-summary"></div>
+                                        <div class="settings-action-row mt-2">
+                                            <button type="button" class="btn btn-sm btn-secondary" onclick="clearRestoreCandidate()">Hủy file</button>
+                                            <button type="button" id="restore-confirm" class="btn btn-sm btn-warning" onclick="confirmRestoreData()">Khôi phục dữ liệu này</button>
+                                        </div>
+                                    </div>
+                                </section>
                             </div>
                         </div>
 
                         <!-- DateTime Settings -->
-                        <div id="datetime-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="datetime-section" class="box settings-collapsible" data-settings-search="ngay gio thời gian system app tuy chinh dong bo">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 🕐 Ngày giờ
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
                                 <div class="mb-2">
                                     <label class="label">Giờ hệ thống hiện tại</label>
-                                    <div id="set-system-clock" style="font-size:16px; font-weight:600; font-family:monospace; padding:8px; background:var(--bg-muted); border-radius:8px;"></div>
+                                    <div id="set-system-clock" class="settings-clock"></div>
                                 </div>
                                 <div class="settings-check mb-2">
                                     <input type="checkbox" id="set-time-override" onchange="toggleTimeOverride()">
                                     <span>Tùy chỉnh ngày giờ</span>
                                 </div>
-                                <div id="time-override-container" style="display:none;">
+                                <div id="time-override-container" class="settings-time-override" style="display:none;">
                                     <div class="mb-2">
                                         <label class="label">Ngày giờ tùy chỉnh</label>
                                         <input type="datetime-local" id="set-custom-datetime" class="input" onchange="updateTimeOffset()">
                                     </div>
                                     <div class="mb-2">
                                         <label class="label">Giờ ứng dụng hiện tại</label>
-                                        <div id="set-app-clock" style="font-size:16px; font-weight:700; color:var(--primary); font-family:monospace; padding:8px; background:var(--bg-muted); border-radius:8px;"></div>
+                                        <div id="set-app-clock" class="settings-clock settings-clock-app"></div>
                                     </div>
-                                    <div id="set-time-diff" style="font-size:12px; color:var(--text-muted); padding:6px; background:var(--bg-muted); border-radius:8px; margin-bottom:8px;"></div>
+                                    <div id="set-time-diff" class="settings-time-diff"></div>
                                     <button class="btn btn-sm btn-warning" onclick="resetTimeToSystem()">🔄 Đồng bộ với hệ thống</button>
-                                    <div style="font-size:11px; color:var(--text-muted); margin-top:8px;">
+                                    <div class="settings-helper settings-helper-plain mt-1">
                                         💡 Tùy chỉnh này chỉ ảnh hưởng đến thời gian tạo đơn/giao dịch mới. Dữ liệu cũ không bị thay đổi.
                                     </div>
                                 </div>
@@ -1367,11 +1428,11 @@
                         </div>
 
                         <!-- Loyalty Settings -->
-                        <div id="loyalty-section" class="box settings-collapsible">
-                            <div class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
+                        <div id="loyalty-section" class="box settings-collapsible" data-settings-search="tich diem khách hàng ty le giá trị điểm loyalty">
+                            <button type="button" class="box-head settings-toggle" onclick="toggleSettingsSection(this)">
                                 🎁 Tích điểm khách hàng
                                 <span class="toggle-icon">▼</span>
-                            </div>
+                            </button>
                             <div class="settings-content">
                                 <div class="mb-2">
                                     <label class="label">Tỷ lệ tích điểm (% giá trị đơn)</label>
@@ -1389,16 +1450,13 @@
                         </div>
 
                         <!-- Users - Full Width - Collapsible -->
-                        <div id="user-management-section" class="box settings-collapsible" style="grid-column: span 2;">
-                            <div class="box-head settings-toggle d-flex justify-between items-center"
-                                onclick="toggleSettingsSection(this)">
-                                <span>👥 Quản lý nhân viên</span>
-                                <div class="d-flex items-center gap-2">
-                                    <button class="btn btn-sm" onclick="event.stopPropagation(); openUserModal()">+
-                                        Thêm
-                                        NV</button>
+                        <div id="user-management-section" class="box settings-collapsible" style="grid-column: span 2;" data-settings-search="quan ly nhan vien tai khoan username quyen trang thai">
+                            <div class="box-head settings-user-head">
+                                <button type="button" class="settings-toggle" onclick="toggleSettingsSection(this)">
+                                    <span>👥 Quản lý nhân viên</span>
                                     <span class="toggle-icon">▼</span>
-                                </div>
+                                </button>
+                                <button class="btn btn-sm" onclick="openUserModal()">+ Thêm NV</button>
                             </div>
                             <div class="settings-content">
                                 <div class="table-wrap" style="box-shadow:none; border:none;">
@@ -1421,12 +1479,12 @@
                     </div>
 
                     <!-- Keyboard Shortcuts - Standalone Full Width Section -->
-                    <div id="shortcuts-section" class="box settings-collapsible mt-4">
-                        <div class="box-head settings-toggle"
+                    <div id="shortcuts-section" class="box settings-collapsible mt-4" data-settings-search="phim tat keyboard shortcut pos gio hang dieu huong menu">
+                        <button type="button" class="box-head settings-toggle"
                             onclick="toggleSettingsSection(this); renderShortcutsSettings();">
                             ⌨️ Phím tắt tùy chỉnh
                             <span class="toggle-icon">▼</span>
-                        </div>
+                        </button>
                         <div class="settings-content shortcuts-content">
                             <div
                                 style="font-size:12px; color:var(--text-muted); margin-bottom:16px; padding:12px; background:var(--bg-muted); border-radius:var(--radius-md);">
@@ -1436,8 +1494,7 @@
                             <div id="shortcuts-grid" class="shortcuts-grid" style="max-height:400px; overflow-y:auto;">
                                 <!-- Shortcuts will be rendered by JavaScript -->
                             </div>
-                            <div
-                                style="margin-top:16px; display:flex; gap:12px; padding-top:12px; border-top:1px solid var(--border-light);">
+                            <div class="shortcuts-actions">
                                 <button class="btn btn-sm btn-secondary" onclick="resetShortcuts()">🔄 Khôi phục mặc
                                     định</button>
                                 <button class="btn btn-sm btn-success" onclick="saveShortcuts()">💾 Lưu phím
@@ -1447,16 +1504,14 @@
                     </div>
 
                     <!-- Danger Zone -->
-                    <div id="danger-zone-section" class="box mt-4"
-                        style="border:2px solid var(--danger); background:var(--danger-light);">
-                        <div style="color:var(--danger); font-weight:bold; font-size:16px; margin-bottom:16px;">⚠️ Vùng
+                    <div id="danger-zone-section" class="box mt-4 settings-danger-zone" data-settings-search="vung nguy hiem tat dang nhap go cai dat reset xoa du lieu">
+                        <div class="settings-danger-title">⚠️ Vùng
                             nguy hiểm</div>
 
                         <!-- Login Bypass -->
-                        <div class="d-flex justify-between items-center mb-3"
-                            style="padding:12px; background:rgba(239,68,68,0.08); border-radius:var(--radius-md); border:1px solid var(--danger);">
+                        <div class="settings-danger-row settings-danger-login mb-3">
                             <div>
-                                <div style="color:var(--danger); font-weight:bold; font-size:14px;">🔓 Tắt đăng nhập
+                                <div class="settings-danger-row-title">🔓 Tắt đăng nhập
                                 </div>
                                 <div style="font-size:12px; color:var(--text-secondary);">Mở ứng dụng sẽ vào thẳng
                                     quyền Admin. Chỉ bật khi máy bán hàng được kiểm soát an toàn.</div>
@@ -1468,10 +1523,9 @@
                         </div>
 
                         <!-- Uninstall Settings -->
-                        <div class="d-flex justify-between items-center mb-3"
-                            style="padding:12px; background:rgba(251,146,60,0.1); border-radius:var(--radius-md); border:1px solid var(--warning);">
+                        <div class="settings-danger-row settings-danger-uninstall mb-3">
                             <div>
-                                <div style="color:var(--warning); font-weight:bold; font-size:14px;">🧹 Gỡ cài đặt ứng
+                                <div class="settings-danger-row-title">🧹 Gỡ cài đặt ứng
                                     dụng</div>
                                 <div style="font-size:12px; color:var(--text-secondary);">Xóa cài đặt, cache và tùy
                                     chỉnh của ứng dụng. <strong>GIỮ LẠI</strong> dữ liệu hàng hóa, đơn hàng, khách hàng.
@@ -1481,10 +1535,9 @@
                         </div>
 
                         <!-- Full Reset -->
-                        <div class="d-flex justify-between items-center"
-                            style="padding:12px; background:rgba(239,68,68,0.1); border-radius:var(--radius-md); border:1px solid var(--danger);">
+                        <div class="settings-danger-row settings-danger-reset">
                             <div>
-                                <div style="color:var(--danger); font-weight:bold; font-size:14px;">🗑️ Xóa toàn bộ dữ
+                                <div class="settings-danger-row-title">🗑️ Xóa toàn bộ dữ
                                     liệu</div>
                                 <div style="font-size:12px; color:var(--text-secondary);">Xóa toàn bộ dữ liệu đơn hàng,
                                     sản phẩm và khách hàng. <strong>Không thể khôi phục.</strong></div>
@@ -1494,13 +1547,12 @@
                     </div>
 
                     <!-- Help Section - Collapsible -->
-                    <div id="help-section" class="box settings-collapsible"
-                        style="grid-column: span 2; margin-top:16px;">
-                        <div class="box-head settings-toggle d-flex justify-between items-center"
+                    <div id="help-section" class="box settings-collapsible mt-4 settings-inline-help">
+                        <button type="button" class="box-head settings-toggle d-flex justify-between items-center"
                             onclick="toggleSettingsSection(this)">
                             <span>❓ Hướng dẫn sử dụng</span>
                             <span class="toggle-icon">▼</span>
-                        </div>
+                        </button>
                         <div class="settings-content">
                             <!-- Help Search -->
                             <div class="mb-2">
@@ -1509,33 +1561,25 @@
                             </div>
 
                             <!-- Feature Summary -->
-                            <div class="mb-2"
-                                style="background:var(--bg-muted); padding:12px; border-radius:var(--radius-md);">
-                                <div style="font-weight:600; margin-bottom:8px;">📋 Tóm tắt chức năng chính:</div>
-                                <div
-                                    style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px; font-size:12px;">
-                                    <div
-                                        style="padding:8px; background:var(--bg-surface); border-radius:var(--radius-sm); border-left:3px solid #6366F1;">
+                            <div class="settings-help-summary mb-2">
+                                <div class="settings-help-summary-title">📋 Tóm tắt chức năng chính:</div>
+                                <div class="settings-help-summary-grid">
+                                    <div class="settings-help-summary-item">
                                         🛒 Bán hàng, thanh toán, trả hàng
                                     </div>
-                                    <div
-                                        style="padding:8px; background:var(--bg-surface); border-radius:var(--radius-sm); border-left:3px solid #10B981;">
+                                    <div class="settings-help-summary-item">
                                         📦 Quản lý sản phẩm, kho, NCC
                                     </div>
-                                    <div
-                                        style="padding:8px; background:var(--bg-surface); border-radius:var(--radius-sm); border-left:3px solid #F59E0B;">
+                                    <div class="settings-help-summary-item">
                                         📊 Báo cáo, thống kê doanh thu
                                     </div>
-                                    <div
-                                        style="padding:8px; background:var(--bg-surface); border-radius:var(--radius-sm); border-left:3px solid #EF4444;">
+                                    <div class="settings-help-summary-item">
                                         👥 Quản lý khách hàng, điểm
                                     </div>
-                                    <div
-                                        style="padding:8px; background:var(--bg-surface); border-radius:var(--radius-sm); border-left:3px solid #8B5CF6;">
+                                    <div class="settings-help-summary-item">
                                         👔 Quản lý nhân viên, lương
                                     </div>
-                                    <div
-                                        style="padding:8px; background:var(--bg-surface); border-radius:var(--radius-sm); border-left:3px solid #06B6D4;">
+                                    <div class="settings-help-summary-item">
                                         🖨️ In hóa đơn, tem nhãn
                                     </div>
                                 </div>
@@ -1544,9 +1588,9 @@
                             <!-- Help Accordion -->
                             <div id="help-accordion-inline" class="help-accordion-inline">
                                 <div class="help-item">
-                                    <div class="help-item-header" onclick="toggleHelpItem(this)">
+                                    <button type="button" class="help-item-header" onclick="toggleHelpItem(this)">
                                         🛒 Bán hàng (POS) <span>+</span>
-                                    </div>
+                                    </button>
                                     <div class="help-item-content">
                                         <ul style="font-size:13px; margin:0; padding-left:20px;">
                                             <li>Click sản phẩm để thêm vào giỏ hàng</li>
@@ -1557,9 +1601,9 @@
                                     </div>
                                 </div>
                                 <div class="help-item">
-                                    <div class="help-item-header" onclick="toggleHelpItem(this)">
+                                    <button type="button" class="help-item-header" onclick="toggleHelpItem(this)">
                                         📦 Quản lý kho & Nhập hàng <span>+</span>
-                                    </div>
+                                    </button>
                                     <div class="help-item-content">
                                         <ul style="font-size:13px; margin:0; padding-left:20px;">
                                             <li>Tạo đơn nhập hàng từ nhà cung cấp</li>
@@ -1570,9 +1614,9 @@
                                     </div>
                                 </div>
                                 <div class="help-item">
-                                    <div class="help-item-header" onclick="toggleHelpItem(this)">
+                                    <button type="button" class="help-item-header" onclick="toggleHelpItem(this)">
                                         📊 Báo cáo & Thống kê <span>+</span>
-                                    </div>
+                                    </button>
                                     <div class="help-item-content">
                                         <ul style="font-size:13px; margin:0; padding-left:20px;">
                                             <li>Xem doanh thu, lợi nhuận theo kỳ</li>
@@ -1585,58 +1629,43 @@
                             </div>
 
                             <!-- Keyboard Shortcuts Reference -->
-                            <div
-                                style="margin-top:16px; padding:14px; background:linear-gradient(135deg, var(--primary-light), var(--bg-muted)); border-radius:var(--radius-md); border:1px solid var(--primary);">
-                                <div style="font-weight:700; font-size:14px; margin-bottom:10px; color:var(--primary);">
+                            <div class="settings-shortcut-reference">
+                                <div class="settings-shortcut-reference-title">
                                     ⌨️ Phím tắt toàn cục</div>
-                                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px;">
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F1</kbd>
+                                <div class="settings-shortcut-grid">
+                                    <div><kbd data-shortcut-action="search">F1</kbd>
                                         Tìm kiếm SP</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F2</kbd>
+                                    <div><kbd data-shortcut-action="clear">F2</kbd>
                                         Xóa giỏ hàng</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F3</kbd>
+                                    <div><kbd data-shortcut-action="print">F3</kbd>
                                         In lại HĐ</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F4</kbd>
+                                    <div><kbd data-shortcut-action="pay">F4</kbd>
                                         Thanh toán</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F7</kbd>
+                                    <div><kbd data-shortcut-action="note">F7</kbd>
                                         Ghi chú đơn</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F8</kbd>
+                                    <div><kbd data-shortcut-action="save">F8</kbd>
                                         Lưu nháp</div>
-                                    <div><kbd
-                                            style="background:var(--success); color:white; padding:2px 6px; border-radius:3px;">F9</kbd>
+                                    <div><kbd data-shortcut-action="newTab">F9</kbd>
                                         <strong>Tab mới</strong>
                                     </div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">F10</kbd>
+                                    <div><kbd data-shortcut-action="menu">F10</kbd>
                                         Menu</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">ESC</kbd>
+                                    <div><kbd>ESC</kbd>
                                         Đóng modal</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">Ctrl+S</kbd>
+                                    <div><kbd>Ctrl+S</kbd>
                                         Lưu</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">Ctrl+N</kbd>
+                                    <div><kbd>Ctrl+N</kbd>
                                         Thêm mới</div>
-                                    <div><kbd
-                                            style="background:var(--bg-surface); padding:2px 6px; border-radius:3px; border:1px solid var(--border-medium);">Alt+1/2</kbd>
+                                    <div><kbd>Alt+1/2</kbd>
                                         Chuyển tab Bán hàng/Hàng hoá</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Save All Bottom -->
-                    <div class="text-right mt-4 mb-4">
-                        <button class="btn btn-lg btn-success" onclick="saveSets()" style="min-width:220px;">💾 LƯU
-                            TẤT
-                            CẢ CÀI ĐẶT</button>
+                    <div id="settings-save-bar" class="settings-save-bar" hidden>
+                        <span id="settings-dirty-indicator" class="settings-dirty-indicator" hidden>● Có thay đổi chưa lưu</span>
+                        <button class="btn btn-lg btn-success" onclick="saveSets()">💾 Lưu tất cả thay đổi</button>
                     </div>
                 </div>
             </div>
@@ -1747,10 +1776,10 @@
                         <div id="help-sections">
                             <!-- POS Section -->
                             <div class="help-section" data-keywords="bán hàng pos thanh toán giỏ hàng khách hàng">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">🛒</span> Bán hàng (POS)</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Cách bán hàng</h4>
                                     <ul>
@@ -1785,10 +1814,10 @@
 
                             <!-- Products Section -->
                             <div class="help-section" data-keywords="sản phẩm hàng hóa danh mục thêm sửa xóa mã vạch">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">📦</span> Quản lý hàng hóa</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Thêm sản phẩm mới</h4>
                                     <ul>
@@ -1816,10 +1845,10 @@
                             <!-- Inventory Section -->
                             <div class="help-section"
                                 data-keywords="kho nhập xuất tồn kho kiểm kho nhà cung cấp đơn nhập">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">📊</span> Quản lý kho</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Nhập kho</h4>
                                     <ul>
@@ -1848,10 +1877,10 @@
 
                             <!-- Purchase Order Section -->
                             <div class="help-section" data-keywords="đơn nhập hàng nhà cung cấp ncc phiếu nhập">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">📋</span> Đơn nhập hàng</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Tạo đơn nhập hàng</h4>
                                     <ul>
@@ -1873,10 +1902,10 @@
 
                             <!-- Suppliers Section -->
                             <div class="help-section" data-keywords="nhà cung cấp ncc liên hệ công nợ">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">🏭</span> Nhà cung cấp</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Quản lý NCC</h4>
                                     <ul>
@@ -1889,10 +1918,10 @@
 
                             <!-- Customers Section -->
                             <div class="help-section" data-keywords="khách hàng công nợ điểm tích lũy vip">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">👥</span> Khách hàng</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Quản lý khách hàng</h4>
                                     <ul>
@@ -1916,10 +1945,10 @@
 
                             <!-- Reports Section -->
                             <div class="help-section" data-keywords="báo cáo thống kê doanh thu lợi nhuận">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">📈</span> Báo cáo & Thống kê</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Tổng quan kinh doanh</h4>
                                     <ul>
@@ -1944,10 +1973,10 @@
 
                             <!-- Staff Section -->
                             <div class="help-section" data-keywords="nhân viên lương hoa hồng">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">👔</span> Quản lý nhân viên</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Thêm nhân viên</h4>
                                     <ul>
@@ -1966,10 +1995,10 @@
 
                             <!-- Settings Section -->
                             <div class="help-section" data-keywords="cài đặt máy in theme sao lưu">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">⚙️</span> Cài đặt</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Thông tin cửa hàng</h4>
                                     <ul>
@@ -1999,17 +2028,17 @@
 
                             <!-- Shortcuts Section -->
                             <div class="help-section" data-keywords="phím tắt nhanh keyboard">
-                                <div class="help-section-header" onclick="toggleHelpSection(this)">
+                                <button type="button" class="help-section-header" onclick="toggleHelpSection(this)">
                                     <div><span class="icon">⌨️</span> Phím tắt</div>
                                     <span class="toggle">▼</span>
-                                </div>
+                                </button>
                                 <div class="help-section-content">
                                     <h4>Các phím tắt thường dùng</h4>
                                     <ul>
-                                        <li><span class="shortcut">F1</span> - Tìm kiếm sản phẩm</li>
-                                        <li><span class="shortcut">F2</span> - Xóa giỏ hàng</li>
-                                        <li><span class="shortcut">F3</span> - In lại hóa đơn gần nhất</li>
-                                        <li><span class="shortcut">F4</span> - Thanh toán nhanh</li>
+                                        <li><span class="shortcut" data-shortcut-action="search">F1</span> - Tìm kiếm sản phẩm</li>
+                                        <li><span class="shortcut" data-shortcut-action="clear">F2</span> - Xóa giỏ hàng</li>
+                                        <li><span class="shortcut" data-shortcut-action="print">F3</span> - In lại hóa đơn gần nhất</li>
+                                        <li><span class="shortcut" data-shortcut-action="pay">F4</span> - Thanh toán nhanh</li>
                                     </ul>
                                     <div class="tip">💡 Có thể tùy chỉnh phím tắt trong phần Cài đặt</div>
                                 </div>
@@ -2031,10 +2060,26 @@
     </div>
 
     <!-- MODALS -->
+    <div class="modal-overlay" id="settings-unsaved-modal" role="dialog" aria-modal="true"
+        aria-labelledby="settings-unsaved-title" onclick="if(event.target === this) cancelSettingsNavigation()">
+        <div class="modal" style="width:460px">
+            <div class="modal-header">
+                <span id="settings-unsaved-title">⚠️ Cài đặt chưa lưu</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="cancelSettingsNavigation()">✕</button>
+            </div>
+            <div class="modal-body">Bạn có thay đổi chưa lưu. Bạn muốn xử lý thế nào trước khi rời Cài đặt?</div>
+            <div class="modal-footer settings-unsaved-actions">
+                <button type="button" class="btn btn-secondary" onclick="cancelSettingsNavigation()">Ở lại</button>
+                <button type="button" class="btn btn-warning" onclick="discardSettingsAndNavigate()">Bỏ thay đổi & rời</button>
+                <button type="button" class="btn btn-success" onclick="saveSettingsAndNavigate()">Lưu & rời</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Login Modal -->
     <div class="modal-overlay" id="login-modal">
         <div class="modal" style="width:420px">
-            <div class="modal-header"
+            <div class="modal-header import-modal-header"
                 style="justify-content:center; background:linear-gradient(135deg, var(--primary), var(--secondary)); color:white;">
                 🔐 ĐĂNG NHẬP HỆ THỐNG
             </div>
@@ -2056,24 +2101,23 @@
         <div class="modal" style="width:520px">
             <div class="modal-header">
                 💳 Thanh toán
-                <span onclick="closeModal('pay-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('pay-modal')">✕</button>
             </div>
             <div class="modal-body">
-                <div
-                    style="text-align:center; margin-bottom:20px; padding:20px; background:linear-gradient(135deg, var(--primary-light), var(--bg-muted)); border-radius:var(--radius-lg);">
-                    <div style="color:var(--text-muted); font-size:12px; text-transform:uppercase; letter-spacing:1px;">
+                <div class="payment-modal-total">
+                    <div class="payment-modal-total-label">
                         Khách cần trả</div>
-                    <div style="font-size:42px; font-weight:800; background:linear-gradient(135deg, var(--primary), var(--secondary)); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent;"
+                    <div class="payment-modal-total-value"
                         id="pay-total-txt">0 ₫</div>
                 </div>
 
-                <div class="d-flex gap-2 mb-2">
-                    <div style="flex:1">
+                <div class="d-flex gap-2 mb-2 payment-modal-fields">
+                    <div class="payment-modal-field">
                         <label class="label">Khách đưa</label>
-                        <input type="text" id="pay-give" style="font-size:20px; font-weight:700; text-align:center;"
+                        <input type="text" id="pay-give" class="payment-give-input"
                             placeholder="0" oninput="formatPaymentInput(this); calcChange()" autocomplete="off">
                     </div>
-                    <div style="flex:1">
+                    <div class="payment-modal-field">
                         <label class="label">Hình thức</label>
                         <select id="pay-method">
                             <option value="CASH">💵 Tiền mặt</option>
@@ -2083,16 +2127,15 @@
                     </div>
                 </div>
 
-                <div
-                    style="background:var(--bg-muted); padding:16px; border-radius:var(--radius-md); margin-bottom:16px;">
+                <div class="payment-change-summary">
                     <div class="d-flex justify-between items-center">
-                        <span style="font-weight:600; font-size:16px;">💰 Tiền thừa:</span>
-                        <span id="pay-change" style="font-size:20px; font-weight:800; color:var(--success);">0 ₫</span>
+                        <span class="payment-change-label">💰 Tiền thừa:</span>
+                        <span id="pay-change" class="payment-change-amount">0 ₫</span>
                     </div>
                 </div>
 
                 <!-- Loyalty Points Section -->
-                <div style="border-top:2px dashed var(--border-light); padding-top:16px;">
+                <div class="payment-points-section">
                     <div class="d-flex justify-between items-center mb-2">
                         <span style="font-size:13px; color:var(--text-secondary);">
                             🎁 Điểm tích lũy: <strong id="pay-cust-points">0</strong> điểm
@@ -2102,12 +2145,12 @@
                         <input type="checkbox" id="use-points" onchange="togglePoints()">
                         <span>Sử dụng điểm để giảm giá</span>
                     </div>
-                    <input type="number" id="points-input" placeholder="Nhập số điểm muốn dùng..." disabled
-                        oninput="calcChange()" style="margin-top:8px;">
+                    <input type="number" id="points-input" class="payment-points-input" placeholder="Nhập số điểm muốn dùng..." disabled
+                        oninput="calcChange()">
                 </div>
 
                 <!-- Order Note -->
-                <div style="margin-top:16px;">
+                <div class="payment-order-note">
                     <label class="label">📝 Ghi chú đơn hàng</label>
                     <input type="text" id="order-note" placeholder="VD: Giao hàng lúc 5h chiều...">
                 </div>
@@ -2122,7 +2165,7 @@
     <!-- Product Modal -->
     <div class="modal-overlay" id="prod-modal">
         <div class="modal" style="width:700px">
-            <div class="modal-header">📦 Thêm/Sửa sản phẩm <span onclick="closeModal('prod-modal')">✕</span></div>
+            <div class="modal-header">📦 Thêm/Sửa sản phẩm <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('prod-modal')">✕</button></div>
             <div class="modal-body">
                 <input type="hidden" id="p-id">
                 <div class="d-flex mb-2">
@@ -2132,7 +2175,7 @@
                         <div class="d-flex gap-1">
                             <input type="text" id="p-code" style="flex:1">
                             <button class="btn btn-sm btn-secondary" type="button" onclick="generateProductBarcode()"
-                                title="Tạo mã vạch ngẫu nhiên">🔄</button>
+                                data-icon-tooltip="Tạo mã" aria-label="Tạo mã">🔄</button>
                         </div>
                     </div>
                 </div>
@@ -2157,25 +2200,23 @@
                                 style="flex:1" oninput="filterCatList(this.value)">
                             <datalist id="p-cat-list"></datalist>
                             <button type="button" class="btn btn-sm btn-secondary" onclick="toggleQuickAddCat()"
-                                title="Thêm danh mục mới">+</button>
+                                data-icon-tooltip="Thêm danh mục" aria-label="Thêm danh mục">+</button>
                         </div>
                         <!-- Quick Add Category Inline -->
                         <div id="quick-cat-inline" class="quick-add-inline" style="display:none; margin-top:8px;">
                             <div class="d-flex gap-1">
                                 <input type="text" id="quick-cat-name" placeholder="Tên danh mục mới..." style="flex:1">
-                                <button type="button" class="btn btn-sm btn-success"
+                                <button type="button" class="btn btn-sm btn-success" data-icon-tooltip="Lưu danh mục" aria-label="Lưu danh mục"
                                     onclick="quickAddCatFromProduct()">✓</button>
-                                <button type="button" class="btn btn-sm btn-secondary"
+                                <button type="button" class="btn btn-sm btn-secondary" data-icon-tooltip="Hủy" aria-label="Hủy"
                                     onclick="toggleQuickAddCat()">✕</button>
                             </div>
                         </div>
                     </div>
                 </div>
                 <!-- Wholesale Section -->
-                <div
-                    style="background:linear-gradient(135deg, var(--warning-light, #fef3c7), var(--bg-muted)); padding:12px; border-radius:var(--radius-md); margin-bottom:12px; border:1px dashed var(--warning);">
-                    <div
-                        style="font-weight:600; font-size:13px; margin-bottom:10px; color:var(--warning-dark, #b45309);">
+                <div class="product-wholesale-panel">
+                    <div class="product-wholesale-title">
                         📦 Cài đặt bán sỉ</div>
                     <div class="d-flex mb-2">
                         <div class="w-50">
@@ -2187,7 +2228,7 @@
                             <input type="number" id="p-min-wholesale" value="10" min="1" placeholder="10">
                         </div>
                     </div>
-                    <div style="font-size:11px; color:var(--text-muted);">💡 Khách sỉ hoặc mua đủ SL tối thiểu sẽ được
+                    <div class="product-wholesale-hint">💡 Khách sỉ hoặc mua đủ SL tối thiểu sẽ được
                         áp giá sỉ</div>
                 </div>
                 <div class="mb-2">
@@ -2207,16 +2248,16 @@
 
     <!-- Customer Modal -->
     <div class="modal-overlay" id="cust-modal">
-        <div class="modal" style="width:500px">
-            <div class="modal-header">👤 Thêm/Sửa khách hàng <span onclick="closeModal('cust-modal')">✕</span></div>
-            <div class="modal-body">
+        <div class="modal customer-form-modal" style="width:500px">
+            <div class="modal-header">👤 Thêm/Sửa khách hàng <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('cust-modal')">✕</button></div>
+            <div class="modal-body customer-form-body">
                 <input type="hidden" id="c-id">
-                <div class="d-flex mb-2">
+                <div class="d-flex mb-2 customer-form-row">
                     <div class="w-50"><label class="label">Tên khách hàng *</label><input type="text" id="c-name"></div>
                     <div class="w-50"><label class="label">Số điện thoại</label><input type="text" id="c-phone"></div>
                 </div>
                 <div class="mb-2"><label class="label">Địa chỉ</label><input type="text" id="c-addr"></div>
-                <div class="d-flex mb-2">
+                <div class="d-flex mb-2 customer-form-row">
                     <div class="w-50">
                         <label class="label">Nhóm khách hàng</label>
                         <select id="c-group">
@@ -2234,7 +2275,7 @@
                         </select>
                     </div>
                 </div>
-                <div class="d-flex mb-2">
+                <div class="d-flex mb-2 customer-form-row">
                     <div class="w-50">
                         <label class="label">Ngày sinh</label>
                         <input type="date" id="c-birthday">
@@ -2246,7 +2287,7 @@
                 </div>
                 <div class="mb-2"><label class="label">Ghi chú</label><input type="text" id="c-note"></div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer customer-form-footer">
                 <button class="btn btn-secondary" onclick="closeModal('cust-modal')">Hủy</button>
                 <button class="btn" onclick="saveCust()">💾 Lưu khách hàng</button>
             </div>
@@ -2255,20 +2296,19 @@
 
     <!-- User Modal -->
     <div class="modal-overlay" id="user-modal">
-        <div class="modal" style="width:650px; max-height:90vh;">
-            <div class="modal-header">👤 Tài khoản nhân viên <span onclick="closeModal('user-modal')">✕</span></div>
-            <div class="modal-body" style="overflow-y:auto; max-height:65vh;">
+        <div class="modal staff-user-modal" style="width:650px; max-height:90vh;">
+            <div class="modal-header staff-user-modal-header">👤 Tài khoản nhân viên <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('user-modal')">✕</button></div>
+            <div class="modal-body staff-user-modal-body" style="overflow-y:auto; max-height:65vh;">
                 <input type="hidden" id="u-id">
 
                 <!-- Avatar Section -->
-                <div style="text-align:center; margin-bottom:20px;">
-                    <div
-                        style="width:100px; height:100px; margin:0 auto; border-radius:50%; overflow:hidden; background:var(--bg-muted); display:flex; align-items:center; justify-content:center; border:3px solid var(--primary-light);">
+                <div class="staff-avatar-editor">
+                    <div class="staff-avatar-preview-wrap">
                         <img id="u-avatar-preview" src=""
-                            style="width:100%; height:100%; object-fit:cover; display:none;">
-                        <span id="u-avatar-placeholder" style="font-size:36px;">👤</span>
+                            class="staff-avatar-preview" style="display:none;">
+                        <span id="u-avatar-placeholder" class="staff-avatar-placeholder">👤</span>
                     </div>
-                    <label class="btn btn-sm btn-secondary mt-2" style="cursor:pointer;">
+                    <label class="btn btn-sm btn-secondary mt-2 staff-avatar-upload">
                         📷 Tải ảnh
                         <input type="file" id="u-avatar-file" accept="image/*" onchange="handleUserAvatar(this)"
                             style="display:none;">
@@ -2276,22 +2316,21 @@
                 </div>
 
                 <!-- Account Info -->
-                <div
-                    style="background:var(--bg-muted); padding:12px; border-radius:var(--radius-md); margin-bottom:16px;">
-                    <div style="font-weight:600; font-size:13px; margin-bottom:10px; color:var(--primary);">🔐 Thông tin
+                <div class="staff-form-section">
+                    <div class="staff-form-section-title">🔐 Thông tin
                         đăng nhập</div>
-                    <div class="d-flex mb-2">
+                    <div class="d-flex mb-2 staff-form-row">
                         <div class="w-50">
                             <label class="label">Mã nhân viên</label>
                             <input type="text" id="u-code" readonly
                                 style="background:var(--bg-surface);font-weight:600;color:var(--primary);">
                         </div>
                         <div class="w-50">
-                            <label class="label">Username *</label>
+                            <label class="label">Tên đăng nhập *</label>
                             <input type="text" id="u-user" placeholder="Tên đăng nhập">
                         </div>
                     </div>
-                    <div class="d-flex mb-2">
+                    <div class="d-flex mb-2 staff-form-row">
                         <div class="w-50">
                             <label class="label">Mật khẩu</label>
                             <input type="password" id="u-pass" placeholder="Để trống nếu không đổi">
@@ -2308,11 +2347,10 @@
                 </div>
 
                 <!-- Personal Info -->
-                <div
-                    style="background:var(--bg-muted); padding:12px; border-radius:var(--radius-md); margin-bottom:16px;">
-                    <div style="font-weight:600; font-size:13px; margin-bottom:10px; color:var(--primary);">📋 Thông tin
+                <div class="staff-form-section">
+                    <div class="staff-form-section-title">📋 Thông tin
                         cá nhân</div>
-                    <div class="d-flex mb-2">
+                    <div class="d-flex mb-2 staff-form-row">
                         <div class="w-50">
                             <label class="label">Tên hiển thị *</label>
                             <input type="text" id="u-name" placeholder="Tên ngắn gọn">
@@ -2322,7 +2360,7 @@
                             <input type="text" id="u-fullname" placeholder="Nguyễn Văn A">
                         </div>
                     </div>
-                    <div class="d-flex mb-2">
+                    <div class="d-flex mb-2 staff-form-row">
                         <div class="w-50">
                             <label class="label">Ngày sinh</label>
                             <input type="date" id="u-birthday">
@@ -2332,7 +2370,7 @@
                             <input type="text" id="u-phone" placeholder="0901234567">
                         </div>
                     </div>
-                    <div class="d-flex mb-2">
+                    <div class="d-flex mb-2 staff-form-row">
                         <div class="w-50">
                             <label class="label">Ngày vào làm</label>
                             <input type="date" id="u-startdate">
@@ -2345,11 +2383,10 @@
                 </div>
 
                 <!-- Salary Info (Admin only) -->
-                <div id="salary-section"
-                    style="background:linear-gradient(135deg, var(--success-light), var(--bg-muted)); padding:12px; border-radius:var(--radius-md);">
-                    <div style="font-weight:600; font-size:13px; margin-bottom:10px; color:var(--success);">💰 Thông tin
+                <div id="salary-section" class="staff-form-section staff-salary-section">
+                    <div class="staff-form-section-title">💰 Thông tin
                         lương</div>
-                    <div class="d-flex mb-2">
+                    <div class="d-flex mb-2 staff-form-row">
                         <div class="w-50">
                             <label class="label">Lương cơ bản (VNĐ/tháng)</label>
                             <input type="text" id="u-basesalary" placeholder="5.000.000"
@@ -2360,12 +2397,12 @@
                             <input type="number" id="u-commission" placeholder="1" min="0" max="100" step="0.1">
                         </div>
                     </div>
-                    <div style="font-size:11px; color:var(--text-muted); font-style:italic;">
+                    <div class="staff-salary-hint">
                         💡 Hoa hồng tính trên doanh thu bán hàng của nhân viên
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer staff-user-modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('user-modal')">Hủy</button>
                 <button class="btn" onclick="saveUser()">💾 Lưu</button>
             </div>
@@ -2374,16 +2411,15 @@
 
     <!-- User Detail View Modal -->
     <div class="modal-overlay" id="user-detail-modal">
-        <div class="modal" style="width:550px;">
-            <div class="modal-header"
-                style="background:linear-gradient(135deg, var(--primary-light), var(--bg-muted)); color:var(--primary);">
+        <div class="modal staff-user-detail-modal" style="width:550px;">
+            <div class="modal-header staff-user-detail-header">
                 👤 Thông tin nhân viên
-                <span onclick="closeModal('user-detail-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('user-detail-modal')">✕</button>
             </div>
             <div class="modal-body" id="user-detail-body">
                 <!-- Content will be dynamically rendered by viewUserDetail() -->
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer staff-user-detail-footer">
                 <button class="btn btn-secondary" onclick="closeModal('user-detail-modal')">Đóng</button>
                 <button class="btn"
                     onclick="const id = document.getElementById('user-detail-modal').dataset.userId; closeModal('user-detail-modal'); openUserModal(id);">
@@ -2394,10 +2430,10 @@
     </div>
 
     <!-- Stock In Modal -->
-    <div class="modal-overlay" id="stock-in-modal">
-        <div class="modal" style="width:700px; max-width:95%">
+    <div class="modal-overlay management-modal-overlay" id="stock-in-modal">
+        <div class="modal management-modal" style="width:700px; max-width:95%">
             <div class="modal-header" style="background:var(--success-light); color:var(--success);">
-                📥 Nhập kho <span onclick="closeModal('stock-in-modal')">✕</span>
+                📥 Nhập kho <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('stock-in-modal')">✕</button>
             </div>
             <div class="modal-body">
                 <div class="d-flex mb-2">
@@ -2423,23 +2459,23 @@
                     <div style="flex:1"><label class="label">Giá nhập</label><input type="text" id="si-price"
                             oninput="formatMoneyInput(this); updateStockTotal()" placeholder="0"></div>
                     <div style="flex:1"><label class="label">Tổng tiền</label><input type="text" id="si-total" readonly
-                            style="background:var(--bg-muted)"></div>
+                            class="stock-in-total"></div>
                 </div>
                 <div class="mb-2"><label class="label">Ghi chú</label><input type="text" id="si-note"
                         placeholder="VD: Nhập hàng tháng 12..."></div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('stock-in-modal')">Hủy</button>
+            <div class="modal-footer management-modal-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('stock-in-modal')">Hủy</button>
                 <button class="btn btn-success" onclick="saveStockIn()">✅ Xác nhận nhập</button>
             </div>
         </div>
     </div>
 
     <!-- Stock Out Modal -->
-    <div class="modal-overlay" id="stock-out-modal">
-        <div class="modal" style="width:550px">
+    <div class="modal-overlay management-modal-overlay" id="stock-out-modal">
+        <div class="modal management-modal" style="width:550px">
             <div class="modal-header" style="background:var(--warning-light); color:var(--warning);">
-                📤 Xuất kho <span onclick="closeModal('stock-out-modal')">✕</span>
+                📤 Xuất kho <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('stock-out-modal')">✕</button>
             </div>
             <div class="modal-body">
                 <div class="mb-2" style="position:relative;">
@@ -2467,8 +2503,8 @@
                 </div>
                 <div class="mb-2"><label class="label">Ghi chú</label><input type="text" id="so-note"></div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('stock-out-modal')">Hủy</button>
+            <div class="modal-footer management-modal-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('stock-out-modal')">Hủy</button>
                 <button class="btn btn-warning" onclick="saveStockOut()">✅ Xác nhận xuất</button>
             </div>
         </div>
@@ -2477,7 +2513,7 @@
     <!-- Supplier Modal -->
     <div class="modal-overlay" id="supplier-modal">
         <div class="modal">
-            <div class="modal-header">🏭 Nhà cung cấp <span onclick="closeModal('supplier-modal')">✕</span></div>
+            <div class="modal-header">🏭 Nhà cung cấp <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('supplier-modal')">✕</button></div>
             <div class="modal-body">
                 <input type="hidden" id="sup-id">
                 <div class="mb-2"><label class="label">Tên nhà cung cấp *</label><input type="text" id="sup-name"></div>
@@ -2500,28 +2536,28 @@
     <!-- Invoice Detail Modal -->
     <div class="modal-overlay" id="invoice-modal">
         <div class="modal" style="width:600px">
-            <div class="modal-header">🧾 Chi tiết hóa đơn <span onclick="closeModal('invoice-modal')">✕</span></div>
+            <div class="modal-header">🧾 Chi tiết hóa đơn <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('invoice-modal')">✕</button></div>
             <div class="modal-body" id="invoice-detail-body"></div>
-            <div class="modal-footer">
+            <div class="modal-footer invoice-detail-footer">
                 <button class="btn btn-secondary" onclick="closeModal('invoice-modal')">Đóng</button>
-                <button class="btn btn-info" onclick="openEditInvoice(currentInvoice?.id)">✏️ Sửa HĐ</button>
-                <button class="btn btn-warning" onclick="exportInvoicePDF()">📄 Xuất PDF</button>
-                <button class="btn" onclick="printCurrentInvoice()">🖨️ In lại</button>
+                <button id="edit-invoice-btn" class="btn btn-info invoice-detail-edit" onclick="openEditInvoice(currentInvoice?.id)">✏️ Sửa HĐ</button>
+                <button class="btn btn-warning invoice-detail-export" onclick="exportInvoicePDF()">📄 Xuất PDF</button>
+                <button class="btn invoice-detail-print" onclick="printCurrentInvoice()">🖨️ In lại</button>
             </div>
         </div>
     </div>
 
     <!-- Customer Debt Modal -->
     <div class="modal-overlay" id="debt-modal">
-        <div class="modal" style="width:500px">
-            <div class="modal-header">💰 Quản lý công nợ <span onclick="closeModal('debt-modal')">✕</span></div>
-            <div class="modal-body">
+        <div class="modal debt-modal" style="width:500px">
+            <div class="modal-header">💰 Quản lý công nợ <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('debt-modal')">✕</button></div>
+            <div class="modal-body debt-modal-body">
                 <input type="hidden" id="debt-cust-id">
-                <div style="text-align:center; margin-bottom:20px;">
-                    <div style="font-size:12px; color:var(--text-muted)">Công nợ hiện tại</div>
-                    <div id="debt-current" style="font-size:28px; font-weight:800; color:var(--danger)">0 ₫</div>
+                <div class="debt-current-summary">
+                    <div>Công nợ hiện tại</div>
+                    <div id="debt-current">0 ₫</div>
                 </div>
-                <div class="d-flex mb-2">
+                <div class="d-flex mb-2 debt-form-row">
                     <div class="w-50">
                         <label class="label">Loại giao dịch</label>
                         <select id="debt-type">
@@ -2536,7 +2572,7 @@
                 </div>
                 <div class="mb-2"><label class="label">Ghi chú</label><input type="text" id="debt-note"></div>
             </div>
-            <div class="modal-footer">
+            <div class="modal-footer debt-modal-footer">
                 <button class="btn btn-secondary" onclick="closeModal('debt-modal')">Hủy</button>
                 <button class="btn" onclick="saveDebt()">✅ Xác nhận</button>
             </div>
@@ -2548,7 +2584,7 @@
         <div class="modal" style="width:800px; max-height:90vh;">
             <div class="modal-header"
                 style="background:linear-gradient(135deg, var(--warning-light), var(--bg-muted)); color:var(--warning);">
-                📤 Nhập dữ liệu từ file <span onclick="closeModal('import-modal')">✕</span>
+                📤 Nhập dữ liệu từ file <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('import-modal')">✕</button>
             </div>
             <div class="modal-body" style="overflow-y:auto; max-height:60vh;">
                 <input type="hidden" id="import-type">
@@ -2579,7 +2615,7 @@
                     </div>
 
                     <div class="box mt-2" style="background:var(--bg-muted); padding:12px;">
-                        <div class="d-flex gap-2">
+                        <div class="d-flex gap-2 import-preview-options">
                             <div style="flex:1">
                                 <label class="label">Ánh xạ cột (Column Mapping)</label>
                                 <div id="import-mapping" style="font-size:12px;"></div>
@@ -2612,7 +2648,7 @@
         <div class="modal" style="width:900px; max-height:90vh;">
             <div class="modal-header"
                 style="background:linear-gradient(135deg, var(--warning-light), var(--bg-muted)); color:var(--warning);">
-                🔄 Tạo đơn trả hàng <span onclick="closeModal('return-modal')">✕</span>
+                🔄 Tạo đơn trả hàng <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('return-modal')">✕</button>
             </div>
             <div class="modal-body" style="overflow-y:auto; max-height:70vh;">
                 <!-- Search Section -->
@@ -2795,11 +2831,11 @@
     </div>
 
     <!-- Inventory Check Modal -->
-    <div class="modal-overlay" id="inventory-check-modal">
-        <div class="modal" style="width:900px; max-height:90vh;">
+    <div class="modal-overlay management-modal-overlay" id="inventory-check-modal">
+        <div class="modal management-modal" style="width:900px; max-height:90vh;">
             <div class="modal-header"
                 style="background:linear-gradient(135deg, var(--primary-light), var(--bg-muted)); color:var(--primary);">
-                📋 Kiểm kho hàng hóa <span onclick="closeModal('inventory-check-modal')">✕</span>
+                📋 Kiểm kho hàng hóa <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('inventory-check-modal')">✕</button>
             </div>
             <div class="modal-body" style="overflow-y:auto; max-height:60vh;">
                 <div class="d-flex gap-2 mb-2 items-center">
@@ -2846,10 +2882,10 @@
                     <input type="text" id="ic-note" placeholder="VD: Kiểm kho định kỳ tháng 12...">
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('inventory-check-modal')">Hủy</button>
-                <button class="btn btn-warning" onclick="exportInventoryCheckExcel()">📥 Xuất Excel</button>
-                <button class="btn btn-primary" onclick="exportInventoryCheckPDF()">📄 Xuất PDF</button>
+            <div class="modal-footer management-modal-footer inventory-check-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('inventory-check-modal')">Hủy</button>
+                <button class="btn btn-secondary" onclick="exportInventoryCheckExcel()">📥 Xuất Excel</button>
+                <button class="btn btn-secondary" onclick="exportInventoryCheckPDF()">📄 Xuất PDF</button>
                 <button class="btn btn-success" onclick="saveInventoryCheck()">✅ Xác nhận điều chỉnh</button>
             </div>
         </div>
@@ -2860,7 +2896,7 @@
         <div class="modal" style="width:550px">
             <div class="modal-header" style="background:linear-gradient(135deg, var(--success), #059669); color:white;">
                 📦 Sản phẩm được quét
-                <span onclick="closeModal('scanned-product-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('scanned-product-modal')">✕</button>
             </div>
             <div class="modal-body" style="text-align:center;">
                 <div id="scanned-product-img"
@@ -2878,11 +2914,11 @@
                             id="scanned-product-stock">0</strong></span>
                 </div>
                 <div style="display:flex; align-items:center; justify-content:center; gap:8px; margin-bottom:20px;">
-                    <button class="btn btn-sm btn-secondary" onclick="modifyScannedQty(-1)">−</button>
+                    <button class="btn btn-sm btn-secondary" data-icon-tooltip="Giảm số lượng" aria-label="Giảm số lượng" onclick="modifyScannedQty(-1)">−</button>
                     <input type="number" id="scanned-product-qty" value="1" min="1"
                         style="width:80px; text-align:center; font-size:18px; font-weight:600; padding:10px;"
                         onfocus="this.select()">
-                    <button class="btn btn-sm btn-secondary" onclick="modifyScannedQty(1)">+</button>
+                    <button class="btn btn-sm btn-secondary" data-icon-tooltip="Tăng số lượng" aria-label="Tăng số lượng" onclick="modifyScannedQty(1)">+</button>
                 </div>
             </div>
             <div class="modal-footer" style="justify-content:center;">
@@ -2897,7 +2933,7 @@
         <div class="modal" style="width:600px">
             <div class="modal-header">
                 🏷️ In tem nhãn sản phẩm
-                <span onclick="closeModal('label-print-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('label-print-modal')">✕</button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="label-product-id">
@@ -2941,8 +2977,7 @@
                 <!-- Label Format Options -->
                 <div class="mb-2">
                     <label class="label">Nội dung in</label>
-                    <div
-                        style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:8px; padding:12px; background:var(--bg-muted); border-radius:var(--radius-md);">
+                    <div class="label-format-options">
                         <div class="settings-check">
                             <input type="checkbox" id="label-show-barcode" checked onchange="updateLabelPreview()">
                             <span>📊 Mã vạch</span>
@@ -2980,26 +3015,25 @@
                 </div>
 
                 <!-- Printer Status -->
-                <div id="label-printer-status"
-                    style="padding:12px; background:var(--bg-muted); border-radius:var(--radius-md); margin-bottom:12px;">
-                    <div class="d-flex items-center justify-between">
-                        <div class="d-flex items-center gap-2">
-                            <span id="label-printer-indicator" style="font-size:20px; color:var(--warning);">●</span>
-                            <div>
-                                <div id="label-printer-name" style="font-weight:600; font-size:13px;">Đang kiểm tra máy
-                                    in...</div>
-                                <div id="label-printer-detail" style="font-size:11px; color:var(--text-muted);">Vui lòng
-                                    đợi</div>
+                <div class="label-printer-block">
+                    <div id="label-printer-status" class="label-printer-status">
+                        <div class="d-flex items-center justify-between">
+                            <div class="d-flex items-center gap-2">
+                                <span id="label-printer-indicator" style="font-size:20px; color:var(--warning);">●</span>
+                                <div>
+                                    <div id="label-printer-name" style="font-weight:600; font-size:13px;">Đang kiểm tra máy
+                                        in...</div>
+                                    <div id="label-printer-detail" style="font-size:11px; color:var(--text-muted);">Vui lòng
+                                        đợi</div>
+                                </div>
                             </div>
+                            <button class="btn btn-sm btn-secondary" onclick="checkLabelPrinter()"
+                                data-icon-tooltip="Kiểm tra lại" aria-label="Kiểm tra lại">🔄</button>
                         </div>
-                        <button class="btn btn-sm btn-secondary" onclick="checkLabelPrinter()"
-                            title="Kiểm tra lại">🔄</button>
                     </div>
-                </div>
-                <!-- Printer Info -->
-                <div
-                    style="font-size:11px; color:var(--text-muted); padding:10px; background:var(--bg-muted); border-radius:var(--radius-sm);">
-                    💡 Hỗ trợ máy in: Godex G500, TSC, Zebra và các máy in tem tương thích TSPL/ZPL
+                    <div class="label-printer-support">
+                        💡 Hỗ trợ máy in: Godex G500, TSC, Zebra và các máy in tem tương thích TSPL/ZPL
+                    </div>
                 </div>
             </div>
             <div class="modal-footer">
@@ -3011,11 +3045,10 @@
 
     <!-- Change Password Modal (for Staff) -->
     <div class="modal-overlay" id="change-password-modal">
-        <div class="modal" style="width:500px">
-            <div class="modal-header"
-                style="background:linear-gradient(135deg, var(--primary), var(--secondary)); color:white;">
+        <div class="modal settings-password-modal" style="width:500px">
+            <div class="modal-header settings-password-modal-header">
                 🔑 Đổi mật khẩu
-                <span onclick="closeModal('change-password-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('change-password-modal')">✕</button>
             </div>
             <div class="modal-body">
                 <div class="mb-2">
@@ -3030,8 +3063,7 @@
                     <label class="label">Xác nhận mật khẩu mới *</label>
                     <input type="password" id="own-confirm-pass" placeholder="Nhập lại mật khẩu mới">
                 </div>
-                <div
-                    style="font-size:11px; color:var(--text-muted); padding:8px; background:var(--bg-muted); border-radius:var(--radius-sm);">
+                <div class="settings-password-note">
                     🔒 Mật khẩu của bạn sẽ được bảo mật. Chỉ bạn mới có thể thay đổi mật khẩu của mình.
                 </div>
             </div>
@@ -3043,11 +3075,11 @@
     </div>
 
     <!-- Purchase Order Modal -->
-    <div class="modal-overlay" id="purchase-order-modal">
-        <div class="modal" style="width:900px; max-width:95vw;">
+    <div class="modal-overlay management-modal-overlay" id="purchase-order-modal">
+        <div class="modal management-modal" style="width:900px; max-width:95vw;">
             <div class="modal-header" style="background:linear-gradient(135deg, var(--success), #059669); color:white;">
                 📦 Tạo đơn nhập hàng
-                <span onclick="closeModal('purchase-order-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('purchase-order-modal')">✕</button>
             </div>
             <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
                 <!-- Order Info -->
@@ -3131,9 +3163,8 @@
                     <span style="font-weight:600;">💰 Đã thanh toán cho nhà cung cấp</span>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('purchase-order-modal')">❌ Hủy</button>
-                <button class="btn btn-warning" onclick="savePOAsDraft()" title="Lưu tạm">📋 Lưu tạm</button>
+            <div class="modal-footer management-modal-footer purchase-order-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('purchase-order-modal')">❌ Hủy</button>
                 <button class="btn btn-success" onclick="savePurchaseOrder()">💾 Lưu đơn nhập</button>
             </div>
         </div>
@@ -3142,61 +3173,63 @@
     <!-- Quick Edit Product Overlay -->
     <div id="quick-edit-overlay" onclick="closeQuickEditProduct()" style="display:none; position:fixed; inset:0; z-index:599; background:rgba(0,0,0,0.6); backdrop-filter:blur(4px);"></div>
     <!-- Quick Edit Product Popup (from PO) -->
-    <div id="quick-edit-product-popup" style="display:none; position:fixed; z-index:600; background:#1a1a2e !important; opacity:1 !important; border-radius:14px; box-shadow:0 12px 40px rgba(0,0,0,0.7); padding:22px; width:380px; max-width:90vw; border:2px solid #6c5ce7; left:50%; top:50%; transform:translate(-50%, -50%); color:#e8e8f0;">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; padding-bottom:12px; border-bottom:1px solid rgba(108,92,231,0.3);">
-            <div style="font-weight:700; font-size:15px; color:#a29bfe;">⚡ Sửa nhanh sản phẩm</div>
-            <span onclick="closeQuickEditProduct()" style="cursor:pointer; font-size:20px; color:#888; transition:color 0.2s;" onmouseover="this.style.color='#ff6b6b'" onmouseout="this.style.color='#888'">✕</span>
+    <div id="quick-edit-product-popup" class="management-quick-edit" style="display:none;">
+        <div class="management-quick-edit-head">
+            <div>⚡ Sửa nhanh sản phẩm</div>
+            <button type="button" class="modal-close quick-edit-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeQuickEditProduct()">✕</button>
         </div>
         <input type="hidden" id="qe-product-id">
-        <div style="margin-bottom:12px;">
-            <label style="display:block; font-size:11px; font-weight:600; color:#a29bfe; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Tên sản phẩm</label>
-            <input type="text" id="qe-name" class="input" style="font-weight:600; background:#2d2d44 !important; color:#ffffff !important; border:1px solid #3d3d5c !important; border-radius:8px; padding:10px 12px; font-size:14px;">
+        <div class="management-quick-edit-body">
+        <div class="management-quick-edit-field">
+            <label>Tên sản phẩm</label>
+            <input type="text" id="qe-name" class="input management-quick-edit-input management-quick-edit-name">
         </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <div style="margin-bottom:12px;">
-                <label style="display:block; font-size:11px; font-weight:600; color:#a29bfe; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Tồn kho</label>
-                <input type="number" id="qe-stock" class="input" step="any" style="background:#2d2d44 !important; color:#ffffff !important; border:1px solid #3d3d5c !important; border-radius:8px; padding:10px 12px; font-size:14px;">
+        <div class="management-quick-edit-grid">
+            <div class="management-quick-edit-field">
+                <label>Tồn kho</label>
+                <input type="number" id="qe-stock" class="input management-quick-edit-input" step="any">
             </div>
-            <div style="margin-bottom:12px;">
-                <label style="display:block; font-size:11px; font-weight:600; color:#a29bfe; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Đơn vị</label>
-                <input type="text" id="qe-unit" class="input" placeholder="Cái, Hộp..." style="background:#2d2d44 !important; color:#ffffff !important; border:1px solid #3d3d5c !important; border-radius:8px; padding:10px 12px; font-size:14px;">
+            <div class="management-quick-edit-field">
+                <label>Đơn vị</label>
+                <input type="text" id="qe-unit" class="input management-quick-edit-input" placeholder="Cái, Hộp...">
             </div>
-            <div style="margin-bottom:12px;">
-                <label style="display:block; font-size:11px; font-weight:600; color:#a29bfe; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Giá bán</label>
-                <input type="text" id="qe-price" class="input" oninput="formatMoneyInput(this)" style="background:#2d2d44 !important; color:#ffffff !important; border:1px solid #3d3d5c !important; border-radius:8px; padding:10px 12px; font-size:14px; font-weight:600;">
+            <div class="management-quick-edit-field">
+                <label>Giá bán</label>
+                <input type="text" id="qe-price" class="input management-quick-edit-input management-quick-edit-money" oninput="formatMoneyInput(this)">
             </div>
-            <div style="margin-bottom:12px;">
-                <label style="display:block; font-size:11px; font-weight:600; color:#a29bfe; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Giá nhập</label>
-                <input type="text" id="qe-cost" class="input" oninput="formatMoneyInput(this)" style="background:#2d2d44 !important; color:#ffffff !important; border:1px solid #3d3d5c !important; border-radius:8px; padding:10px 12px; font-size:14px; font-weight:600;">
+            <div class="management-quick-edit-field">
+                <label>Giá nhập</label>
+                <input type="text" id="qe-cost" class="input management-quick-edit-input management-quick-edit-money" oninput="formatMoneyInput(this)">
             </div>
         </div>
-        <div style="margin-bottom:14px;">
-            <label style="display:block; font-size:11px; font-weight:600; color:#a29bfe; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Giá sỉ</label>
-            <input type="text" id="qe-wholesale" class="input" oninput="formatMoneyInput(this)" style="background:#2d2d44 !important; color:#ffffff !important; border:1px solid #3d3d5c !important; border-radius:8px; padding:10px 12px; font-size:14px; font-weight:600;">
+        <div class="management-quick-edit-field">
+            <label>Giá sỉ</label>
+            <input type="text" id="qe-wholesale" class="input management-quick-edit-input management-quick-edit-money" oninput="formatMoneyInput(this)">
         </div>
-        <div style="display:flex; gap:10px; margin-top:14px;">
-            <button class="btn btn-secondary" onclick="closeQuickEditProduct()" style="flex:1; background:#3d3d5c !important; color:#e8e8f0 !important; border:none; border-radius:8px; padding:10px; font-weight:600;">Hủy</button>
-            <button class="btn btn-success" onclick="saveQuickEditProduct()" style="flex:1; background:linear-gradient(135deg, #00b894, #00cec9) !important; color:#fff !important; border:none; border-radius:8px; padding:10px; font-weight:600;">💾 Lưu</button>
+        </div>
+        <div class="management-quick-edit-actions">
+            <button class="btn btn-secondary" onclick="closeQuickEditProduct()">Hủy</button>
+            <button class="btn btn-success" onclick="saveQuickEditProduct()">💾 Lưu</button>
         </div>
     </div>
 
     <!-- Purchase Order View Modal -->
-    <div class="modal-overlay" id="po-view-modal">
-        <div class="modal" style="width:800px; max-width:95vw;">
+    <div class="modal-overlay management-modal-overlay" id="po-view-modal">
+        <div class="modal management-modal" style="width:800px; max-width:95vw;">
             <div class="modal-header"
                 style="background:linear-gradient(135deg, var(--primary), var(--secondary)); color:white;">
                 📋 Chi tiết đơn nhập hàng
-                <span onclick="closeModal('po-view-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('po-view-modal')">✕</button>
             </div>
             <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
                 <div id="po-view-content"></div>
             </div>
-            <div class="modal-footer" style="flex-wrap: wrap; gap: 8px;">
-                <button class="btn btn-secondary" onclick="closeModal('po-view-modal')"
+            <div class="modal-footer management-modal-footer po-view-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('po-view-modal')"
                     style="white-space:nowrap;">Đóng</button>
                 <button class="btn btn-warning" onclick="markPOAsPaid(currentViewPOId)" title="Đánh dấu thanh toán"
                     style="white-space:nowrap;">💰 Đã Thanh Toán</button>
-                <button class="btn btn-info" onclick="printBatchLabelsForPO(currentViewPOId)" title="In tem"
+                <button class="btn btn-secondary" onclick="printBatchLabelsForPO(currentViewPOId)" title="In tem"
                     style="white-space:nowrap;">🏷️ In tem</button>
                 <button class="btn" onclick="editPurchaseOrder(currentViewPOId)" title="Sửa đơn"
                     style="white-space:nowrap;">✏️ Sửa</button>
@@ -3207,47 +3240,78 @@
     </div>
 
     <!-- Purchase Orders History Modal -->
-    <div class="modal-overlay" id="po-history-modal">
-        <div class="modal" style="width:800px; max-width:95vw;">
+    <div class="modal-overlay management-modal-overlay" id="po-history-modal">
+        <div class="modal management-modal" style="width:800px; max-width:95vw;">
             <div class="modal-header" style="background:linear-gradient(135deg, var(--info), #2563EB); color:white;">
                 📜 Lịch sử đơn nhập hàng
-                <span onclick="closeModal('po-history-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('po-history-modal')">✕</button>
             </div>
             <div class="modal-body" style="max-height:70vh; overflow-y:auto;">
-                <div class="d-flex gap-2 mb-2">
-                    <input type="date" id="po-filter-from" style="flex:1" onchange="renderPOHistory()">
-                    <span style="align-self:center;">đến</span>
-                    <input type="date" id="po-filter-to" style="flex:1" onchange="renderPOHistory()">
-                    <select id="po-filter-supplier" style="flex:1" onchange="renderPOHistory()">
+                <div class="po-history-filters mb-2">
+                    <div class="po-date-range">
+                        <input type="date" id="po-filter-from" onchange="changePOHistoryFilter()">
+                        <span>đến</span>
+                        <input type="date" id="po-filter-to" onchange="changePOHistoryFilter()">
+                    </div>
+                    <select id="po-filter-supplier" style="flex:1" onchange="changePOHistoryFilter()">
                         <option value="">Tất cả NCC</option>
                     </select>
-                    <select id="po-filter-payment" style="flex:1" onchange="renderPOHistory()">
+                    <select id="po-filter-payment" style="flex:1" onchange="changePOHistoryFilter()">
                         <option value="">Tất cả TT</option>
                         <option value="paid">💰 Đã thanh toán</option>
                         <option value="unpaid">⚠️ Còn nợ</option>
                     </select>
                 </div>
+                <div id="po-payment-selection" class="po-payment-selection" hidden>
+                    <label class="po-select-all-label"><input type="checkbox" id="po-payment-select-all" onchange="toggleAllPOPayments(this.checked)"> Chọn tất cả</label>
+                    <span id="po-payment-selected-count" role="status" aria-live="polite">Đã chọn 0 đơn</span>
+                    <div class="po-selection-actions">
+                        <button type="button" id="po-bulk-delete-open" class="btn btn-danger" data-management-mutation onclick="openBulkDeletePurchaseOrders()" disabled>Xóa hàng loạt</button>
+                        <button type="button" id="po-payment-submit" class="btn btn-success" data-management-mutation onclick="markSelectedPOsAsPaid()" disabled>Đã thanh toán</button>
+                    </div>
+                </div>
                 <div id="po-history-list"></div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('po-history-modal')">Đóng</button>
-                <button class="btn" onclick="exportPOHistoryExcel()">📥 Xuất Excel</button>
+            <div class="modal-footer management-modal-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('po-history-modal')">Đóng</button>
+                <button class="btn btn-secondary" onclick="exportPOHistoryExcel()">📥 Xuất Excel</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay management-modal-overlay" id="po-bulk-delete-modal">
+        <div class="modal management-modal po-bulk-delete-dialog" role="dialog" aria-modal="true" aria-labelledby="po-bulk-delete-title">
+            <div class="modal-header">
+                <span id="po-bulk-delete-title">Xóa hàng loạt đơn nhập</span>
+                <button type="button" class="modal-close" id="po-bulk-delete-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('po-bulk-delete-modal')">✕</button>
+            </div>
+            <div class="modal-body">
+                <p id="po-bulk-delete-summary"></p>
+                <fieldset class="po-bulk-delete-options">
+                    <legend>Xử lý tồn kho</legend>
+                    <label><input type="radio" name="po-bulk-delete-stock" id="po-bulk-delete-keep-stock" value="keep" checked> Giữ nguyên tồn kho</label>
+                    <label><input type="radio" name="po-bulk-delete-stock" id="po-bulk-delete-revert-stock" value="revert"> Trừ lại lượng hàng đã nhập</label>
+                </fieldset>
+                <p id="po-bulk-delete-undo-limit" hidden>Chỉ 20 đơn cuối trong nhóm xóa được giữ trong lịch sử hoàn tác.</p>
+            </div>
+            <div class="modal-footer management-modal-footer">
+                <button type="button" class="btn btn-secondary management-cancel" id="po-bulk-delete-cancel" onclick="closeModal('po-bulk-delete-modal')">Hủy</button>
+                <button type="button" class="btn btn-danger" id="po-bulk-delete-confirm" data-management-mutation onclick="confirmBulkDeletePurchaseOrders()">Xác nhận xóa</button>
             </div>
         </div>
     </div>
 
     <!-- Report Viewer Modal (In-app view) -->
-    <div class="modal-overlay" id="report-viewer-modal">
-        <div class="modal" style="width:1100px; max-width:95vw;">
+    <div class="modal-overlay management-modal-overlay" id="report-viewer-modal">
+        <div class="modal management-modal" style="width:1100px; max-width:95vw;">
             <div class="modal-header" style="background:linear-gradient(135deg, #6366f1, #8b5cf6); color:white;">
                 📊 Báo cáo kinh doanh
-                <span onclick="closeModal('report-viewer-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('report-viewer-modal')">✕</button>
             </div>
-            <div class="modal-body"
-                style="min-height:550px; max-height:85vh; overflow-y:auto; overflow-x:visible; padding:16px;">
+            <div class="modal-body report-viewer-body"
+                style="max-height:85vh; overflow-y:auto; overflow-x:visible; padding:16px;">
                 <!-- Date Filter inside Modal -->
-                <div class="d-flex justify-between items-center mb-2"
-                    style="padding:12px; background:var(--bg-muted); border-radius:var(--radius-md);">
+                <div class="d-flex justify-between items-center mb-2 report-modal-filter">
                     <span style="font-weight:600; font-size:14px; color:var(--text-secondary);">📅 Lọc theo thời
                         gian:</span>
                     <div class="d-flex gap-1 items-center">
@@ -3284,15 +3348,15 @@
                 </div>
                 <div id="report-viewer-content" style="font-size:14px;"></div>
             </div>
-            <div class="modal-footer">
-                <button class="btn btn-secondary" onclick="closeModal('report-viewer-modal')">Đóng</button>
+            <div class="modal-footer management-modal-footer">
+                <button class="btn btn-secondary management-cancel" onclick="closeModal('report-viewer-modal')">Đóng</button>
                 <button class="btn btn-secondary" onclick="exportMgmtReportExcel()">📥 Excel</button>
                 <button class="btn btn-secondary" onclick="exportMgmtReportPDF()">📄 PDF</button>
             </div>
         </div>
     </div>
 
-    <div id="toast-box"></div>
+    <div id="toast-box" class="notification-region" hidden></div>
     <div id="print-area"></div>
     <div id="label-print-area" style="display:none;"></div>
 
@@ -3300,8 +3364,8 @@
     <div class="modal-overlay" id="drafts-modal">
         <div class="modal" style="width:600px; max-width:95vw;">
             <div class="modal-header" style="background:linear-gradient(135deg, #F59E0B, #D97706); color:white;">
-                <span id="drafts-modal-title">📋 Đơn lưu tạm</span>
-                <span onclick="closeModal('drafts-modal')">✕</span>
+                <span id="drafts-modal-title">📋 Đơn bán lưu tạm</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('drafts-modal')">✕</button>
             </div>
             <div class="modal-body" style="max-height:60vh;overflow-y:auto;">
                 <div id="drafts-modal-list"></div>
@@ -3312,13 +3376,30 @@
         </div>
     </div>
 
+    <div class="modal-overlay" id="unsaved-order-modal">
+        <div class="modal" style="width:440px; max-width:95vw;">
+            <div class="modal-header">
+                ⚠️ Đơn chưa lưu
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeUnsavedTabModal()">✕</button>
+            </div>
+            <div class="modal-body">
+                <p>Đơn hiện tại có thay đổi chưa được lưu tạm.</p>
+            </div>
+            <div class="modal-footer unsaved-order-actions">
+                <button class="btn btn-secondary unsaved-order-cancel" onclick="closeUnsavedTabModal()">Hủy</button>
+                <button class="btn btn-danger unsaved-order-discard" onclick="discardAndCloseUnsavedTab()">Bỏ thay đổi &amp; đóng</button>
+                <button class="btn btn-primary unsaved-order-save" onclick="saveAndCloseUnsavedTab()">💾 Lưu tạm &amp; đóng</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Batch Label Print Selection Modal -->
     <div class="modal-overlay" id="batch-label-modal">
         <div class="modal" style="width:700px; max-width:95vw;">
             <div class="modal-header"
                 style="background:linear-gradient(135deg, var(--primary), var(--secondary)); color:white;">
                 🏷️ Chọn sản phẩm in tem nhãn
-                <span onclick="closeModal('batch-label-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('batch-label-modal')">✕</button>
             </div>
             <div class="modal-body" style="max-height:60vh;overflow-y:auto;">
                 <div class="d-flex justify-between items-center mb-2"
@@ -3349,7 +3430,7 @@
         <div class="modal" style="width:700px; max-height:80vh;">
             <div class="modal-header"
                 style="background:linear-gradient(135deg, var(--primary), var(--secondary)); color:white;">
-                🔄 Chọn sản phẩm đổi lấy <span onclick="closeModal('exchange-product-modal')">✕</span>
+                🔄 Chọn sản phẩm đổi lấy <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('exchange-product-modal')">✕</button>
             </div>
             <div class="modal-body" style="overflow-y:auto; max-height:60vh;">
                 <div class="mb-2">
@@ -3370,9 +3451,9 @@
     <div class="modal-overlay" id="quick-return-exchange-modal">
         <div class="modal" style="width:800px; max-width:95vw; max-height:90vh;">
             <div class="modal-header" style="background:linear-gradient(135deg, #f59e0b, #d97706); color:white;">
-                🔄 Trả / Đổi hàng nhanh <span onclick="closeQuickReturnExchangeModal()">✕</span>
+                🔄 Trả / Đổi hàng nhanh <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeQuickReturnExchangeModal()">✕</button>
             </div>
-            <div class="modal-body" style="overflow-y:auto; max-height:65vh; padding:16px;">
+            <div class="modal-body quick-return-body" style="overflow-y:auto; max-height:65vh; padding:16px;">
                 <!-- Search Bar -->
                 <div class="mb-3">
                     <input type="text" id="qr-search" placeholder="🔍 Quét mã vạch hoặc tìm kiếm sản phẩm..."
@@ -3386,44 +3467,37 @@
                 </div>
 
                 <!-- Two-Column Layout -->
-                <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                <div class="quick-return-panels">
                     <!-- Left: Return Items -->
-                    <div style="flex:1; min-width:300px;">
-                        <div
-                            style="background:linear-gradient(135deg, #fef3c7, #fde68a); padding:12px; border-radius:8px 8px 0 0; font-weight:600; color:#92400e;">
+                    <div class="quick-return-panel quick-return-panel-return">
+                        <div class="quick-return-panel-header">
                             📥 HÀNG CẦN TRẢ
                         </div>
-                        <div id="qr-return-list"
-                            style="border:1px solid #fde68a; border-top:none; border-radius:0 0 8px 8px; min-height:150px; max-height:250px; overflow-y:auto; padding:8px;">
+                        <div id="qr-return-list" class="quick-return-panel-list">
                             <div class="empty-state" style="padding:30px; text-align:center; color:var(--text-muted);">
                                 <div style="font-size:24px;">📦</div>
                                 <div style="font-size:13px;">Thêm sản phẩm cần trả</div>
                             </div>
                         </div>
-                        <div
-                            style="padding:10px; background:var(--bg-muted); border-radius:0 0 8px 8px; display:flex; justify-content:space-between; font-weight:600;">
+                        <div class="quick-return-panel-total">
                             <span>Tổng trả:</span>
                             <span id="qr-return-total" style="color:#d97706;">0 ₫</span>
                         </div>
                     </div>
 
                     <!-- Right: Exchange Items -->
-                    <div style="flex:1; min-width:300px;">
-                        <div
-                            style="background:linear-gradient(135deg, #d1fae5, #a7f3d0); padding:12px; border-radius:8px 8px 0 0; font-weight:600; color:#065f46; display:flex; justify-content:space-between; align-items:center;">
+                    <div class="quick-return-panel quick-return-panel-exchange">
+                        <div class="quick-return-panel-header">
                             <span>📤 HÀNG MUA THÊM</span>
-                            <button class="btn btn-sm" onclick="toggleQRExchangeMode()"
-                                style="font-size:11px; padding:4px 8px;">+ Thêm hàng</button>
+                            <button class="btn btn-sm quick-return-add-exchange" onclick="toggleQRExchangeMode()">+ Thêm hàng</button>
                         </div>
-                        <div id="qr-exchange-list"
-                            style="border:1px solid #a7f3d0; border-top:none; border-radius:0 0 8px 8px; min-height:150px; max-height:250px; overflow-y:auto; padding:8px;">
+                        <div id="qr-exchange-list" class="quick-return-panel-list">
                             <div class="empty-state" style="padding:30px; text-align:center; color:var(--text-muted);">
                                 <div style="font-size:24px;">🛒</div>
                                 <div style="font-size:13px;">Thêm sản phẩm đổi lấy (tùy chọn)</div>
                             </div>
                         </div>
-                        <div
-                            style="padding:10px; background:var(--bg-muted); border-radius:0 0 8px 8px; display:flex; justify-content:space-between; font-weight:600;">
+                        <div class="quick-return-panel-total">
                             <span>Tổng mua:</span>
                             <span id="qr-exchange-total" style="color:#059669;">0 ₫</span>
                         </div>
@@ -3431,11 +3505,10 @@
                 </div>
 
                 <!-- Difference Calculation -->
-                <div id="qr-difference-section"
-                    style="margin-top:16px; padding:16px; background:linear-gradient(135deg, var(--bg-surface), var(--bg-muted)); border-radius:12px; border:2px solid var(--primary);">
-                    <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <span style="font-size:16px; font-weight:600;" id="qr-diff-label">💰 Cần trả khách:</span>
-                        <span style="font-size:24px; font-weight:700; color:var(--primary);" id="qr-diff-amount">0
+                <div id="qr-difference-section" class="quick-return-difference">
+                    <div class="quick-return-difference-row">
+                        <span id="qr-diff-label">💰 Cần trả khách:</span>
+                        <span id="qr-diff-amount">0
                             ₫</span>
                     </div>
                 </div>
@@ -3457,7 +3530,7 @@
         <div class="modal" style="max-width:700px;">
             <div class="modal-header">
                 <h3 id="generic-modal-title">Chi tiết</h3>
-                <span onclick="closeModal('generic-modal')">✕</span>
+                <button type="button" class="modal-close" data-icon-tooltip="Đóng" aria-label="Đóng" onclick="closeModal('generic-modal')">✕</button>
             </div>
             <div class="modal-body" id="generic-modal-content"></div>
             <div class="modal-footer">
