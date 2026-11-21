@@ -1,16 +1,27 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
-const sync = (channel, payload) => ipcRenderer.sendSync(channel, payload);
+const invoke = (channel, payload) => ipcRenderer.invoke(channel, payload);
 
 contextBridge.exposeInMainWorld('ntkiot', Object.freeze({
+    auth: Object.freeze({
+        login: (username, password, requestId) => invoke('ntkiot:auth-login', { username, password, requestId }),
+        logout: () => invoke('ntkiot:auth-logout'),
+        current: () => invoke('ntkiot:auth-current')
+    }),
     data: Object.freeze({
-        load: () => sync('ntkiot:data-load'),
-        save: (text, options = {}) => sync('ntkiot:data-save', { text, keepBak: options.keepBak !== false }),
-        createBackup: (text, limit) => sync('ntkiot:backup-create', { text, limit }),
-        listBackups: () => sync('ntkiot:backup-list'),
-        readBackup: id => sync('ntkiot:backup-read', { id }),
-        cleanupBackups: limit => sync('ntkiot:backup-cleanup', { limit }),
-        resetAll: () => sync('ntkiot:data-reset-all')
+        loadPrimary: () => invoke('ntkiot:data-load-primary'),
+        loadBak: () => invoke('ntkiot:data-load-bak'),
+        save: (text, options = {}) => invoke('ntkiot:data-save', { ...options, text }),
+        getCommitStatus: requestId => invoke('ntkiot:data-commit-status', { requestId }),
+        createBackup: (_text, _limit, options = {}) => invoke('ntkiot:backup-create', { reason: options.reason }),
+        listBackups: () => invoke('ntkiot:backup-list'),
+        readBackup: id => invoke('ntkiot:backup-read', { id }),
+        cleanupBackups: limit => invoke('ntkiot:backup-cleanup', { limit }),
+        resetAll: options => invoke('ntkiot:data-reset-all', options),
+        exportBackup: () => invoke('ntkiot:backup-export'),
+        prepareRestore: () => invoke('ntkiot:restore-prepare'),
+        cancelRestore: () => invoke('ntkiot:restore-cancel'),
+        commitRestore: options => invoke('ntkiot:restore-commit', options)
     }),
     printers: Object.freeze({
         list: () => ipcRenderer.invoke('ntkiot:printers-list'),

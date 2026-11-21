@@ -9,6 +9,9 @@ const requiredFiles = [
   'main.js',
   'index.html',
   'script.js',
+  'notification-events.js',
+  'notifications.js',
+  'responsive-tables.js',
   'styles.css',
   path.join('build', 'icon.ico')
 ];

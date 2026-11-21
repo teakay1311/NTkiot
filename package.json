@@ -1,6 +1,6 @@
 {
   "name": "ntkiot",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "description": "Ứng dụng quản lý bán hàng offline trên máy tính",
   "main": "main.js",
   "scripts": {
